@@ -137,6 +137,11 @@ yarn-error.log
 package-lock.json
 yarn.lock
 
+# Next.js
+/.next/
+/out/
+.next
+
 # Environment variables
 .env.local
 .env.*.local
