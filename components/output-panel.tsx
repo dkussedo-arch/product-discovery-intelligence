@@ -1,7 +1,7 @@
 'use client'
 
 import { memo } from 'react'
-import { Sparkles } from 'lucide-react'
+import { Sparkles, AlertTriangle, AlertCircle, HelpCircle, CheckCircle2, TrendingUp } from 'lucide-react'
 
 interface OutputPanelProps {
   results: any | null
@@ -12,148 +12,176 @@ function OutputPanel({ results, isAnalyzing }: OutputPanelProps) {
   const emptyState = !results && !isAnalyzing
 
   return (
-    <div className="h-full flex flex-col p-6 bg-gray-50">
+    <div className="h-full flex flex-col bg-white border-l border-border">
       {/* Header */}
-      <div className="mb-6 pb-6 border-b border-gray-200">
-        <div className="flex items-center gap-2 mb-2">
-          <Sparkles className="w-5 h-5 text-purple-600" />
-          <h2 className="text-lg font-semibold text-gray-900">AI Insights</h2>
+      <div className="sticky top-0 border-b border-border px-8 py-6 bg-white z-10">
+        <div className="flex items-center gap-2">
+          <Sparkles className="w-5 h-5 text-accent" />
+          <h2 className="text-lg font-light text-primary">AI Synthesis</h2>
         </div>
-        <p className="text-sm text-gray-600">
-          Synthesized analysis and recommendations
-        </p>
       </div>
 
       {/* Content */}
-      <div className="flex-1 overflow-y-auto">
+      <div className="flex-1 overflow-y-auto px-8 py-6 space-y-6">
         {emptyState && (
           <div className="h-full flex items-center justify-center">
-            <div className="text-center">
-              <div className="w-12 h-12 rounded-full bg-white flex items-center justify-center mx-auto mb-3">
-                <Sparkles className="w-6 h-6 text-gray-400" />
+            <div className="text-center max-w-sm">
+              <div className="w-16 h-16 rounded-full bg-accent-light/20 flex items-center justify-center mx-auto mb-4">
+                <Sparkles className="w-8 h-8 text-accent" />
               </div>
-              <p className="text-sm text-gray-600 font-medium">No analysis yet</p>
-              <p className="text-xs text-gray-500 mt-1">
-                Analyze content to see AI insights
+              <h3 className="text-lg font-light text-primary mb-2">Waiting for analysis</h3>
+              <p className="text-sm text-muted font-light">
+                PDI will synthesize your discoveries into actionable insights, surface conflicts, and suggest next questions.
               </p>
             </div>
           </div>
         )}
 
         {isAnalyzing && (
-          <div className="flex flex-col items-center justify-center h-full">
-            <div className="w-10 h-10 rounded-full border-2 border-gray-200 border-t-purple-600 animate-spin mb-4" />
-            <p className="text-sm text-gray-700 font-medium">Synthesizing insights...</p>
-            <div className="mt-4 space-y-2 w-full">
-              <div className="h-3 bg-white rounded animate-pulse" />
-              <div className="h-3 bg-white rounded animate-pulse w-5/6" />
-              <div className="h-3 bg-white rounded animate-pulse w-4/6" />
+          <div className="h-full flex items-center justify-center">
+            <div className="text-center">
+              <div className="w-12 h-12 border-3 border-accent border-t-transparent rounded-full animate-spin mx-auto mb-4" />
+              <p className="text-sm text-muted font-light">Claude is synthesizing your knowledge graph...</p>
             </div>
           </div>
         )}
 
-        {results && (
-          <div className="space-y-6">
-            {/* Summary Section */}
+        {!emptyState && !isAnalyzing && results && (
+          <>
+            {/* Proactive Alerts */}
+            {results.alerts?.length > 0 && (
+              <div className="space-y-3">
+                <h3 className="text-sm font-semibold text-primary">Alerts</h3>
+                <div className="space-y-2.5">
+                  {results.alerts.map((alert: any) => {
+                    const alertConfig = {
+                      conflict: {
+                        icon: AlertTriangle,
+                        bg: 'bg-red-50 border-red-200',
+                        text: 'text-red-900',
+                        badge: 'bg-red-100 text-red-700',
+                      },
+                      expiry: {
+                        icon: AlertCircle,
+                        bg: 'bg-orange-50 border-orange-200',
+                        text: 'text-orange-900',
+                        badge: 'bg-orange-100 text-orange-700',
+                      },
+                      duplicate_risk: {
+                        icon: AlertCircle,
+                        bg: 'bg-yellow-50 border-yellow-200',
+                        text: 'text-yellow-900',
+                        badge: 'bg-yellow-100 text-yellow-700',
+                      },
+                      coverage_gap: {
+                        icon: HelpCircle,
+                        bg: 'bg-blue-50 border-blue-200',
+                        text: 'text-blue-900',
+                        badge: 'bg-blue-100 text-blue-700',
+                      },
+                      unconsulted_research: {
+                        icon: CheckCircle2,
+                        bg: 'bg-green-50 border-green-200',
+                        text: 'text-green-900',
+                        badge: 'bg-green-100 text-green-700',
+                      },
+                    }
+                    const config = alertConfig[alert.type as keyof typeof alertConfig]
+                    const Icon = config.icon
+
+                    return (
+                      <div key={alert.id} className={`${config.bg} border rounded-lg p-4`}>
+                        <div className="flex items-start gap-3">
+                          <Icon className={`w-5 h-5 flex-shrink-0 mt-0.5 ${config.text}`} />
+                          <div className="flex-1 min-w-0">
+                            <div className="flex items-center gap-2 mb-1">
+                              <h4 className={`font-light text-sm ${config.text}`}>{alert.title}</h4>
+                              <span className={`text-xs px-2 py-1 rounded font-light ${config.badge}`}>
+                                {alert.severity}
+                              </span>
+                            </div>
+                            <p className={`text-xs font-light leading-relaxed opacity-85 ${config.text}`}>
+                              {alert.description}
+                            </p>
+                            {alert.suggestedAction && (
+                              <p className={`text-xs mt-2 font-light italic opacity-75 ${config.text}`}>
+                                → {alert.suggestedAction}
+                              </p>
+                            )}
+                          </div>
+                        </div>
+                      </div>
+                    )
+                  })}
+                </div>
+              </div>
+            )}
+
+            {/* Synthesis */}
             {results.synthesis && (
-              <div className="bg-white p-6 rounded-lg border border-gray-200">
-                <h3 className="font-semibold text-gray-900 mb-4 flex items-center gap-2">
-                  <div className="w-2 h-2 rounded-full bg-purple-600" />
-                  Executive Summary
+              <div className="space-y-3">
+                <h3 className="text-sm font-semibold text-primary flex items-center gap-2">
+                  <Sparkles className="w-4 h-4 text-accent" />
+                  Synthesis
                 </h3>
-                <p className="text-gray-700 leading-relaxed text-sm">
-                  {results.synthesis}
-                </p>
+                <div className="bg-accent-light/5 border border-accent-light rounded-lg p-4">
+                  <p className="text-sm text-primary font-light leading-relaxed">
+                    {results.synthesis}
+                  </p>
+                </div>
               </div>
             )}
 
             {/* Key Findings */}
-            {results.keyFindings && results.keyFindings.length > 0 && (
-              <div className="bg-white p-6 rounded-lg border border-gray-200">
-                <h3 className="font-semibold text-gray-900 mb-4 flex items-center gap-2">
-                  <div className="w-2 h-2 rounded-full bg-purple-600" />
-                  Key Findings
-                </h3>
-                <ul className="space-y-3">
+            {results.keyFindings?.length > 0 && (
+              <div className="space-y-3">
+                <h3 className="text-sm font-semibold text-primary">Key Findings</h3>
+                <div className="space-y-2.5">
                   {results.keyFindings.map((finding: string, idx: number) => (
-                    <li key={idx} className="flex gap-3 text-sm text-gray-700">
-                      <span className="text-purple-600 font-bold mt-0.5">•</span>
-                      <span>{finding}</span>
-                    </li>
-                  ))}
-                </ul>
-              </div>
-            )}
-
-            {/* Competitive Positioning */}
-            {results.positioning && (
-              <div className="bg-white p-6 rounded-lg border border-gray-200">
-                <h3 className="font-semibold text-gray-900 mb-4 flex items-center gap-2">
-                  <div className="w-2 h-2 rounded-full bg-purple-600" />
-                  Competitive Positioning
-                </h3>
-                <p className="text-gray-700 leading-relaxed text-sm">
-                  {results.positioning}
-                </p>
-              </div>
-            )}
-
-            {/* Market Gaps */}
-            {results.gaps && results.gaps.length > 0 && (
-              <div className="bg-white p-6 rounded-lg border border-gray-200">
-                <h3 className="font-semibold text-gray-900 mb-4 flex items-center gap-2">
-                  <div className="w-2 h-2 rounded-full bg-purple-600" />
-                  Market Gaps Identified
-                </h3>
-                <ul className="space-y-2">
-                  {results.gaps.map((gap: string, idx: number) => (
-                    <li
-                      key={idx}
-                      className="text-sm text-gray-700 p-3 bg-amber-50 rounded border border-amber-200"
-                    >
-                      {gap}
-                    </li>
-                  ))}
-                </ul>
-              </div>
-            )}
-
-            {/* Recommendations */}
-            {results.recommendations && results.recommendations.length > 0 && (
-              <div className="bg-white p-6 rounded-lg border border-gray-200">
-                <h3 className="font-semibold text-gray-900 mb-4 flex items-center gap-2">
-                  <div className="w-2 h-2 rounded-full bg-purple-600" />
-                  Recommendations
-                </h3>
-                <ol className="space-y-3">
-                  {results.recommendations.map((rec: string, idx: number) => (
-                    <li key={idx} className="flex gap-3 text-sm text-gray-700">
-                      <span className="font-bold text-purple-600 min-w-max">{idx + 1}.</span>
-                      <span>{rec}</span>
-                    </li>
-                  ))}
-                </ol>
-              </div>
-            )}
-
-            {/* Stats */}
-            {results.stats && (
-              <div className="bg-white p-6 rounded-lg border border-gray-200">
-                <h3 className="font-semibold text-gray-900 mb-4 flex items-center gap-2">
-                  <div className="w-2 h-2 rounded-full bg-purple-600" />
-                  Analysis Stats
-                </h3>
-                <div className="grid grid-cols-2 gap-3">
-                  {Object.entries(results.stats).map(([key, value]: [string, any]) => (
-                    <div key={key} className="p-3 bg-gray-50 rounded">
-                      <p className="text-xs text-gray-600 capitalize">{key}</p>
-                      <p className="text-lg font-bold text-gray-900">{value}</p>
+                    <div key={idx} className="bg-secondary rounded-lg p-3.5 border border-border/50">
+                      <div className="flex gap-3">
+                        <TrendingUp className="w-4 h-4 flex-shrink-0 text-accent mt-0.5" />
+                        <p className="text-xs text-primary font-light leading-relaxed">{finding}</p>
+                      </div>
                     </div>
                   ))}
                 </div>
               </div>
             )}
-          </div>
+
+            {/* Gaps */}
+            {results.gaps?.length > 0 && (
+              <div className="space-y-3">
+                <h3 className="text-sm font-semibold text-primary">Evidence Gaps</h3>
+                <div className="space-y-2.5">
+                  {results.gaps.map((gap: string, idx: number) => (
+                    <div key={idx} className="bg-orange-50/30 border border-orange-100 rounded-lg p-3.5">
+                      <div className="flex gap-3">
+                        <HelpCircle className="w-4 h-4 flex-shrink-0 text-orange-600 mt-0.5" />
+                        <p className="text-xs text-orange-900 font-light leading-relaxed">{gap}</p>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {/* Next Questions */}
+            {results.nextQuestions?.length > 0 && (
+              <div className="space-y-3">
+                <h3 className="text-sm font-semibold text-primary">Next Questions</h3>
+                <div className="space-y-2.5">
+                  {results.nextQuestions.map((question: string, idx: number) => (
+                    <div key={idx} className="bg-blue-50/30 border border-blue-100 rounded-lg p-3.5">
+                      <p className="text-xs text-blue-900 font-light leading-relaxed">
+                        <span className="font-semibold">?</span> {question}
+                      </p>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+          </>
         )}
       </div>
     </div>

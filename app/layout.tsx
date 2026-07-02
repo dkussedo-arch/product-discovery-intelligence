@@ -13,12 +13,14 @@ const geistMono = Geist_Mono({
 })
 
 export const metadata: Metadata = {
-  title: 'Product Discovery Intelligence',
-  description: 'Uncover deep insights about your competitors and market with AI-powered analysis',
+  title: 'PDI — Product Discovery Intelligence',
+  description: 'AI-native organizational memory platform. Capture, connect, and surface the insights, assumptions, and decisions your product team generates. Turn discovery into organizational knowledge.',
+  keywords: ['product discovery', 'organizational memory', 'product management', 'research', 'knowledge graph', 'AI'],
   openGraph: {
-    title: 'Product Discovery Intelligence',
-    description: 'Uncover deep insights about your competitors and market with AI-powered analysis',
+    title: 'PDI — Product Discovery Intelligence',
+    description: 'Stop losing discovery knowledge. Capture insights, assumptions, and decisions. Let AI connect them.',
     type: 'website',
+    url: 'https://pdi.app',
   },
 }
 
@@ -26,7 +28,7 @@ export const viewport: Viewport = {
   width: 'device-width',
   initialScale: 1,
   userScalable: true,
-  themeColor: '#7c3aed',
+  themeColor: '#2563eb',
 }
 
 export default function RootLayout({
@@ -35,12 +37,12 @@ export default function RootLayout({
   children: React.ReactNode
 }) {
   return (
-    <html lang="en" className="scroll-smooth bg-white">
+    <html lang="en" className="scroll-smooth bg-background">
       <head>
         <link rel="preconnect" href="https://fonts.googleapis.com" />
         <link rel="preconnect" href="https://fonts.gstatic.com" crossOrigin="anonymous" />
       </head>
-      <body className={`${geistSans.variable} ${geistMono.variable} antialiased bg-white text-foreground`}>
+      <body className={`${geistSans.variable} ${geistMono.variable} antialiased bg-background text-primary`}>
         {children}
       </body>
     </html>

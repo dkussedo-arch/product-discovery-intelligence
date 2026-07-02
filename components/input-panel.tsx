@@ -1,118 +1,141 @@
 'use client'
 
 import { useState, memo, useCallback } from 'react'
-import { Upload, ChevronDown } from 'lucide-react'
+import { AlertCircle, Lightbulb, Target, CheckSquare, Beaker } from 'lucide-react'
 
 interface InputPanelProps {
-  onAnalyze: (content: string) => void
+  onAnalyze: (content: string, entityType: string) => void
   isAnalyzing: boolean
 }
 
 function InputPanel({ onAnalyze, isAnalyzing }: InputPanelProps) {
   const [content, setContent] = useState('')
-  const [inputMethod, setInputMethod] = useState<'text' | 'file'>('text')
+  const [entityType, setEntityType] = useState<'insight' | 'assumption' | 'decision' | 'experiment'>('insight')
 
   const handleAnalyze = useCallback(() => {
     if (content.trim()) {
-      onAnalyze(content)
+      onAnalyze(content, entityType)
+      setContent('')
     }
-  }, [content, onAnalyze])
+  }, [content, entityType, onAnalyze])
 
-  const handleFileUpload = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0]
-    if (file) {
-      const reader = new FileReader()
-      reader.onload = (event) => {
-        const text = event.target?.result as string
-        setContent(text)
-      }
-      reader.readAsText(file)
+  const handleKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
+    if (e.key === 'Enter' && e.ctrlKey && !isAnalyzing) {
+      handleAnalyze()
     }
-  }, [])
+  }
+
+  const entityConfig = {
+    insight: {
+      label: 'Customer Insight',
+      description: 'What you learned from research',
+      placeholder: 'Share what you discovered from customer interviews, surveys, or user research...',
+      icon: Lightbulb,
+      color: 'bg-blue-50 border-blue-200 focus-within:ring-blue-500',
+    },
+    assumption: {
+      label: 'Product Assumption',
+      description: 'What you believe and why',
+      placeholder: 'State your assumption, the evidence behind it, and how you\'ll validate it...',
+      icon: Target,
+      color: 'bg-purple-50 border-purple-200 focus-within:ring-purple-500',
+    },
+    decision: {
+      label: 'Product Decision',
+      description: 'Roadmap choices and rationale',
+      placeholder: 'Document what decision was made, why, and what alternatives were considered...',
+      icon: CheckSquare,
+      color: 'bg-green-50 border-green-200 focus-within:ring-green-500',
+    },
+    experiment: {
+      label: 'Experiment',
+      description: 'Tests of your assumptions',
+      placeholder: 'Describe your hypothesis, methodology, and results...',
+      icon: Beaker,
+      color: 'bg-orange-50 border-orange-200 focus-within:ring-orange-500',
+    },
+  }
+
+  const config = entityConfig[entityType]
+  const Icon = config.icon
 
   return (
-    <div className="p-6 h-full flex flex-col">
-      <h2 className="text-lg font-semibold text-gray-900 mb-6">Add Content</h2>
-
-      {/* Input Method Selector */}
-      <div className="mb-6">
-        <label className="block text-sm font-medium text-gray-700 mb-2">Input Type</label>
-        <div className="flex gap-2">
-          <button
-            onClick={() => setInputMethod('text')}
-            className={`flex-1 px-3 py-2 rounded-lg border text-sm font-medium transition ${
-              inputMethod === 'text'
-                ? 'border-purple-600 bg-purple-50 text-purple-600'
-                : 'border-gray-200 text-gray-600 hover:border-gray-300'
-            }`}
-          >
-            Text
-          </button>
-          <button
-            onClick={() => setInputMethod('file')}
-            className={`flex-1 px-3 py-2 rounded-lg border text-sm font-medium transition ${
-              inputMethod === 'file'
-                ? 'border-purple-600 bg-purple-50 text-purple-600'
-                : 'border-gray-200 text-gray-600 hover:border-gray-300'
-            }`}
-          >
-            File
-          </button>
+    <div className="h-full flex flex-col bg-white">
+      {/* Header */}
+      <div className="sticky top-0 border-b border-border px-6 py-4 bg-white z-10">
+        <h2 className="text-sm font-semibold text-primary mb-4">Capture Discovery</h2>
+        
+        {/* Entity Type Selector */}
+        <div className="space-y-2">
+          {(Object.keys(entityConfig) as Array<keyof typeof entityConfig>).map((type) => (
+            <label key={type} className="flex items-center gap-3 cursor-pointer p-2.5 rounded-lg hover:bg-secondary transition">
+              <input
+                type="radio"
+                value={type}
+                checked={entityType === type}
+                onChange={(e) => setEntityType(e.target.value as any)}
+                className="w-4 h-4 text-accent"
+                disabled={isAnalyzing}
+              />
+              <div className="flex-1 min-w-0">
+                <div className="text-sm font-light text-primary">{entityConfig[type].label}</div>
+                <div className="text-xs text-muted">{entityConfig[type].description}</div>
+              </div>
+            </label>
+          ))}
         </div>
       </div>
 
-      {/* Text Input */}
-      {inputMethod === 'text' && (
-        <div className="mb-6 flex-1 flex flex-col">
-          <label className="block text-sm font-medium text-gray-700 mb-2">Paste content</label>
+      {/* Content Area */}
+      <div className="flex-1 flex flex-col p-6 gap-4 overflow-y-auto">
+        {/* Input Box */}
+        <div className={`flex-1 flex flex-col ${config.color} border-2 rounded-xl p-4 transition focus-within:ring-2`}>
+          <div className="flex items-center gap-2 mb-3">
+            <Icon className="w-4 h-4 text-primary" />
+            <span className="text-xs font-semibold text-primary uppercase tracking-wide">{config.label}</span>
+          </div>
+          
           <textarea
             value={content}
             onChange={(e) => setContent(e.target.value)}
-            placeholder="Paste competitor landing pages, blog posts, feature lists, or any text data..."
-            className="flex-1 p-4 border border-gray-200 rounded-lg text-sm text-gray-900 placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-purple-600 focus:border-transparent resize-none"
+            onKeyDown={handleKeyDown}
+            placeholder={config.placeholder}
+            disabled={isAnalyzing}
+            className="flex-1 bg-transparent text-primary text-sm resize-none outline-none placeholder-muted/60 font-light"
           />
+          
+          <div className="text-xs text-muted mt-3 pt-3 border-t border-current/10">
+            {content.length} characters · Ctrl+Enter to analyze
+          </div>
         </div>
-      )}
 
-      {/* File Upload */}
-      {inputMethod === 'file' && (
-        <div className="mb-6 flex-1 flex flex-col justify-center">
-          <label className="block text-sm font-medium text-gray-700 mb-4">Upload file</label>
-          <div className="flex-1 border-2 border-dashed border-gray-300 rounded-lg flex items-center justify-center cursor-pointer hover:border-purple-600 hover:bg-purple-50 transition relative">
-            <input
-              type="file"
-              onChange={handleFileUpload}
-              className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
-              accept=".txt,.md,.csv"
-            />
-            <div className="text-center pointer-events-none">
-              <Upload className="w-8 h-8 text-gray-400 mx-auto mb-2" />
-              <p className="text-sm font-medium text-gray-600">Drop files here</p>
-              <p className="text-xs text-gray-500">or click to browse</p>
+        {/* Actions */}
+        <div className="space-y-2">
+          <button
+            onClick={handleAnalyze}
+            disabled={!content.trim() || isAnalyzing}
+            className="w-full px-4 py-3 bg-accent text-white rounded-lg hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed transition font-light text-sm flex items-center justify-center gap-2"
+          >
+            {isAnalyzing ? (
+              <>
+                <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                Analyzing...
+              </>
+            ) : (
+              `Analyze ${config.label}`
+            )}
+          </button>
+        </div>
+
+        {/* Info Box */}
+        <div className="bg-accent-light/10 border border-accent-light rounded-lg p-3.5">
+          <div className="flex gap-2">
+            <AlertCircle className="w-4 h-4 flex-shrink-0 text-accent mt-0.5" />
+            <div className="text-xs text-muted font-light leading-relaxed">
+              PDI connects your insights to assumptions, assumptions to decisions, and surfaces conflicts. Every piece strengthens your organizational memory.
             </div>
           </div>
         </div>
-      )}
-
-      {/* Analysis Button */}
-      <button
-        onClick={handleAnalyze}
-        disabled={!content.trim() || isAnalyzing}
-        className="w-full px-4 py-3 rounded-lg bg-purple-600 text-white font-semibold hover:bg-purple-700 disabled:opacity-50 disabled:cursor-not-allowed transition flex items-center justify-center gap-2"
-      >
-        {isAnalyzing ? (
-          <>
-            <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
-            Analyzing...
-          </>
-        ) : (
-          'Analyze Content'
-        )}
-      </button>
-
-      {/* Character Count */}
-      <div className="mt-4 text-xs text-gray-500 text-center">
-        {content.length} characters
       </div>
     </div>
   )

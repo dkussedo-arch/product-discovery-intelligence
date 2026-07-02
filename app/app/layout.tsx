@@ -5,7 +5,7 @@ import DashboardNav from '@/components/dashboard-nav'
 
 export default function AppLayout({ children }: { children: ReactNode }) {
   return (
-    <div className="h-screen flex flex-col bg-white">
+    <div className="h-screen flex flex-col bg-background">
       <DashboardNav />
       <div className="flex-1 overflow-hidden">
         {children}
