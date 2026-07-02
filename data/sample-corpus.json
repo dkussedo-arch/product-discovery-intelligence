@@ -1,0 +1,62 @@
+[
+  {
+    "id": "sample-001",
+    "title": "Enterprise onboarding churn — Q1 interview synthesis",
+    "source": "dovetail",
+    "sourceUrl": "https://dovetail.example/projects/onboarding-churn",
+    "author": "UX Research",
+    "createdAt": "2026-01-15T10:00:00.000Z",
+    "tags": ["onboarding", "churn", "enterprise"],
+    "content": "We interviewed 12 enterprise admins in January. The dominant pattern: teams stall in the first 14 days when SSO setup fails or requires IT approval loops. Participants described \"weeks of back-and-forth\" before their org could invite end users. Three of five churned accounts cited onboarding friction as the primary cancellation reason — not missing features. Key quote: \"We bought the product in November but couldn't get our team in until February.\" Recommendation from research: reduce time-to-first-invite for enterprise admins and surface a checklist for IT prerequisites."
+  },
+  {
+    "id": "sample-002",
+    "title": "Assumption: Enterprise churn is driven by missing integrations",
+    "source": "notion",
+    "sourceUrl": "https://notion.example/assumptions/ent-integrations",
+    "author": "Sarah Chen, PM",
+    "createdAt": "2026-02-01T14:30:00.000Z",
+    "tags": ["assumption", "enterprise", "integrations"],
+    "content": "We believe enterprise customers churn because we lack native Salesforce and Jira integrations. Evidence: 4 exit interviews mentioned integrations. We will know this is true if integration requests correlate with churn in Productboard. Status: Active. Owner: Sarah Chen. Last reviewed: February 2026."
+  },
+  {
+    "id": "sample-003",
+    "title": "Productboard feedback cluster — onboarding complaints",
+    "source": "productboard",
+    "sourceUrl": "https://productboard.example/insights/onboarding",
+    "author": "Product Ops",
+    "createdAt": "2026-02-10T09:00:00.000Z",
+    "tags": ["onboarding", "feedback"],
+    "content": "Cluster analysis (Feb 2026): 47 feedback items tagged onboarding. Top themes: SSO configuration (18), invite workflow confusion (11), lack of admin progress visibility (9). Revenue impact estimate: $240k ARR in accounts mentioning onboarding in last 90 days. Note: integration requests appear in only 6 items — lower volume than onboarding friction."
+  },
+  {
+    "id": "sample-004",
+    "title": "Decision record — Q1 roadmap prioritization",
+    "source": "notion",
+    "sourceUrl": "https://notion.example/decisions/q1-roadmap",
+    "author": "Head of Product",
+    "createdAt": "2026-02-20T16:00:00.000Z",
+    "tags": ["decision", "roadmap"],
+    "content": "Decision: Prioritize Salesforce connector for Q1 over onboarding improvements. Rationale: largest deal in pipeline requested Salesforce. Dissent: Research lead noted onboarding research from January was not consulted. Assumption linked: enterprise churn driven by integrations (see Assumption Register). Outcome tracking: TBD."
+  },
+  {
+    "id": "sample-005",
+    "title": "Slack #product-discovery — onboarding vs integrations debate",
+    "source": "slack",
+    "sourceUrl": "https://slack.example/archives/product-discovery/p1708012800",
+    "author": "Research lead",
+    "createdAt": "2026-02-22T11:45:00.000Z",
+    "tags": ["slack", "onboarding"],
+    "content": "Thread summary: Research lead flagged that Q1 Dovetail synthesis showed onboarding as primary churn driver, but roadmap decision prioritized integrations. PM responded that pipeline deal outweighs research signal. Research: \"We already validated this in January — are we re-debating a closed question?\" Action item: reconcile assumption register with latest interview data before committing eng resources."
+  },
+  {
+    "id": "sample-006",
+    "title": "Experiment log — SSO wizard A/B test (Q4 prior year)",
+    "source": "confluence",
+    "sourceUrl": "https://confluence.example/experiments/sso-wizard",
+    "author": "Growth PM",
+    "createdAt": "2025-10-05T10:00:00.000Z",
+    "tags": ["experiment", "onboarding", "sso"],
+    "content": "Experiment: Guided SSO setup wizard vs. documentation-only flow. Result: +22% completion of SSO setup within 7 days. Not shipped — deprioritized for Q4 feature freeze. Hypothesis validated: admin guidance reduces onboarding stall. Recommendation archived: ship wizard when eng capacity allows."
+  }
+]
