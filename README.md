@@ -2,7 +2,7 @@
 
 **An AI-native organizational memory platform for product teams.**
 
-Unite fragmented discovery knowledge — research, assumptions, and decisions — into an active, auditable memory layer that compounds instead of disappearing.
+Unite fragmented discovery knowledge — research, assumptions, and decisions — into an active, auditable memory layer that compounds instead of disappearing. This console or platform is designed to build a durable product discovery graph, connecting unstructured customer research evidence directly to live roadmap decisions.
 
 | Resource | Link |
 |----------|------|
