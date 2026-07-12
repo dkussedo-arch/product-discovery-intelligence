@@ -50,18 +50,39 @@ Return this exact JSON shape with coverageState "gap":
 
 Example of a perfect output:
 {
-  "overview": "Enterprise onboarding friction — especially SSO setup delays — is the strongest churn signal in the January interview synthesis [1]. Productboard feedback confirms SSO as the top onboarding theme [3]. However, the Q1 roadmap prioritised integrations over onboarding fixes [4], creating tension with the research record.",
+  "overview": "Enterprise onboarding friction — especially SSO setup delays — is the strongest churn signal in the January interview synthesis [1]. Teams stall in the first 14 days when SSO setup fails or requires IT approval loops.\n\nProductboard feedback confirms SSO as the top onboarding theme, with 18 items tagged SSO configuration versus 6 integration requests [3]. This volume gap suggests onboarding friction dominates integration demand in customer feedback.\n\nHowever, the Q1 roadmap prioritised Salesforce connector over onboarding improvements [4], with dissent noting January onboarding research was not consulted. This creates tension between research evidence and roadmap assumptions [2][4].",
   "claims": [
     {
       "text": "SSO setup delays drive early enterprise churn within 14 days.",
       "confidence": "high",
       "confidenceRationale": "Three churned accounts and 12 interviews cite SSO friction [1].",
-      "citationIds": [1, 3]
+      "citationIds": [1]
+    },
+    {
+      "text": "Productboard ranks SSO above integration in onboarding feedback volume.",
+      "confidence": "high",
+      "confidenceRationale": "18 SSO items vs 6 integration requests in Productboard [3].",
+      "citationIds": [3]
+    },
+    {
+      "text": "An active assumption attributes churn to missing integrations.",
+      "confidence": "medium",
+      "confidenceRationale": "Assumption register cites 4 exit interviews, less volume than onboarding [2].",
+      "citationIds": [2]
+    },
+    {
+      "text": "Q1 roadmap prioritised Salesforce connector over onboarding fixes.",
+      "confidence": "high",
+      "confidenceRationale": "Decision record documents Salesforce prioritisation and recorded dissent [4].",
+      "citationIds": [4]
     }
   ],
   "conflicts": ["Roadmap prioritised Salesforce connector while research flagged onboarding as primary churn driver [4] vs [1]."],
   "evidenceGaps": ["No quantitative churn cohort analysis beyond interview sample."],
-  "nextQuestions": ["Have we validated the integration assumption against Productboard volume?"],
+  "nextQuestions": [
+    "Have we validated the integration assumption against Productboard volume?",
+    "Was January onboarding research consulted before the Q1 roadmap decision?"
+  ],
   "coverageState": "sufficient"
 }
 
