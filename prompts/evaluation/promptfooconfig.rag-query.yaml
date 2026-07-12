@@ -1,0 +1,18 @@
+# yaml-language-server: $schema=https://promptfoo.dev/config-schema.json
+description: PDI RAG synthesis query eval — 10 test cases (TC-001 … TC-010)
+
+prompts:
+  - file://rag-query-prompt.yaml
+
+providers:
+  - id: anthropic:messages:claude-sonnet-4-6
+    config:
+      max_tokens: 4096
+      temperature: 0.2
+
+defaultTest:
+  assert:
+    - type: javascript
+      value: file://assert-rag-query-output.mjs
+
+tests: file://rag-query-tests.promptfoo.yaml

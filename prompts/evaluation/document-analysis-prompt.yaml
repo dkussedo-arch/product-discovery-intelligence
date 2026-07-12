@@ -1,0 +1,7 @@
+- role: system
+  content: file://../../prompts/document-analysis.txt
+- role: user
+  content: |
+    Analyze the following document:
+
+    {{input}}

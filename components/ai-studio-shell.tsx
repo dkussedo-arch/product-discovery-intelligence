@@ -14,6 +14,10 @@ import {
 } from 'lucide-react'
 
 import { ingestArtifact, listArtifacts, queryMemory } from '@/lib/pdi-api'
+import {
+  trackAiGenerationCompleted,
+  trackAiGenerationStarted,
+} from '@/lib/analytics'
 import type { ArtifactSource, SynthesisResult } from '@/lib/types'
 import { cn } from '@/lib/utils'
 
@@ -65,6 +69,10 @@ export function AiStudioShell({
   const [error, setError] = useState<string | null>(null)
   const [result, setResult] = useState<SynthesisResult | null>(null)
   const [corpusCount, setCorpusCount] = useState<number | null>(null)
+  const [apiStatus, setApiStatus] = useState<'checking' | 'connected' | 'error'>(
+    'checking'
+  )
+  const [apiStatusMessage, setApiStatusMessage] = useState<string | null>(null)
 
   const [ingestTitle, setIngestTitle] = useState('')
   const [ingestContent, setIngestContent] = useState('')
@@ -77,8 +85,16 @@ export function AiStudioShell({
     try {
       const data = await listArtifacts(apiBase || undefined)
       setCorpusCount(data.count)
-    } catch {
+      setApiStatus('connected')
+      setApiStatusMessage(null)
+    } catch (err) {
       setCorpusCount(null)
+      setApiStatus('error')
+      setApiStatusMessage(
+        err instanceof Error
+          ? err.message
+          : 'Cannot connect to the API. Start the dev server: npx.cmd pnpm run dev'
+      )
     }
   }, [apiBase])
 
@@ -96,10 +112,15 @@ export function AiStudioShell({
     setError(null)
     setResult(null)
 
+    trackAiGenerationStarted('rag_query')
+    const startedAt = performance.now()
+
     try {
       const synthesis = await queryMemory(trimmed, apiBase || undefined)
       setResult(synthesis)
+      trackAiGenerationCompleted('rag_query', performance.now() - startedAt, true)
     } catch (err) {
+      trackAiGenerationCompleted('rag_query', performance.now() - startedAt, false)
       setError(err instanceof Error ? err.message : 'Query failed.')
     } finally {
       setLoading(false)
@@ -139,6 +160,22 @@ export function AiStudioShell({
 
   return (
     <div className="mx-auto w-full max-w-6xl px-4 py-8">
+      {apiStatus === 'checking' && (
+        <div className="mb-6 flex items-center gap-2 rounded-xl border border-[var(--color-card-border)] bg-[var(--color-card)] px-4 py-3 text-sm text-[var(--color-muted)]">
+          <Loader2 className="h-4 w-4 animate-spin" />
+          Connecting to API…
+        </div>
+      )}
+
+      {apiStatus === 'error' && apiStatusMessage && (
+        <div
+          role="alert"
+          className="mb-6 rounded-xl border border-red-500/40 bg-red-500/10 px-4 py-3 text-sm text-red-200"
+        >
+          {apiStatusMessage}
+        </div>
+      )}
+
       {showApiConfig && (
         <div className="mb-6 rounded-xl border border-[var(--color-card-border)] bg-[var(--color-card)] p-4">
           <div className="mb-2 flex items-center gap-2 text-sm font-medium">
@@ -152,7 +189,8 @@ export function AiStudioShell({
             className="h-10 w-full rounded-lg border border-[var(--color-card-border)] bg-[#0d1219] px-3 text-sm outline-none focus:ring-2 focus:ring-[var(--color-accent)]"
           />
           <p className="mt-2 text-xs text-[var(--color-muted)]">
-            Google AI Studio runs on a different domain — set your deployed PDI URL here.
+            On localhost, leave this empty — the studio uses the same dev server.
+            For Google AI Studio (cross-origin), set your deployed PDI URL.
             {corpusCount !== null && (
               <span className="ml-2 inline-flex items-center gap-1">
                 <Database className="h-3 w-3" />

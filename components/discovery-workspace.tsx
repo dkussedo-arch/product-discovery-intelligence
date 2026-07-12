@@ -15,6 +15,11 @@ import {
 } from 'lucide-react'
 
 import { queryMemory } from '@/lib/pdi-api'
+import {
+  trackAiGenerationCompleted,
+  trackAiGenerationStarted,
+  trackUserRatedOutput,
+} from '@/lib/analytics'
 import type { SynthesisResult } from '@/lib/types'
 import { cn } from '@/lib/utils'
 
@@ -59,10 +64,15 @@ export function DiscoveryWorkspace() {
     setError(null)
     setResult(null)
 
+    trackAiGenerationStarted('rag_query')
+    const startedAt = performance.now()
+
     try {
       const synthesis = await queryMemory(trimmed)
       setResult(synthesis)
+      trackAiGenerationCompleted('rag_query', performance.now() - startedAt, true)
     } catch (err) {
+      trackAiGenerationCompleted('rag_query', performance.now() - startedAt, false)
       setError(err instanceof Error ? err.message : 'Something went wrong.')
     } finally {
       setLoading(false)
@@ -251,10 +261,18 @@ export function DiscoveryWorkspace() {
 
             <div className="flex items-center gap-3 text-sm text-[var(--color-muted)]">
               <span>Was this helpful?</span>
-              <button type="button" className="rounded-lg border border-[var(--color-card-border)] p-2 hover:bg-white/5">
+              <button
+                type="button"
+                onClick={() => trackUserRatedOutput('thumbs_up')}
+                className="rounded-lg border border-[var(--color-card-border)] p-2 hover:bg-white/5"
+              >
                 <ThumbsUp className="h-4 w-4" />
               </button>
-              <button type="button" className="rounded-lg border border-[var(--color-card-border)] p-2 hover:bg-white/5">
+              <button
+                type="button"
+                onClick={() => trackUserRatedOutput('thumbs_down')}
+                className="rounded-lg border border-[var(--color-card-border)] p-2 hover:bg-white/5"
+              >
                 <ThumbsDown className="h-4 w-4" />
               </button>
             </div>

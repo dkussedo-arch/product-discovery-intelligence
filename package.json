@@ -6,13 +6,26 @@
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
-    "typecheck": "tsc --noEmit"
+    "typecheck": "tsc --noEmit",
+    "eval:sync": "node scripts/sync-promptfoo-tests.mjs",
+    "eval:sync:rag": "node scripts/sync-rag-eval-tests.mjs",
+    "eval": "node scripts/sync-promptfoo-tests.mjs && node scripts/run-promptfoo.mjs eval --config prompts/evaluation/promptfooconfig.yaml",
+    "eval:rag": "node scripts/sync-rag-eval-tests.mjs && node scripts/run-promptfoo.mjs eval --config prompts/evaluation/promptfooconfig.rag-query.yaml",
+    "eval:view": "node scripts/run-promptfoo.mjs view",
+    "eval:synthesis": "node scripts/run-promptfoo.mjs eval --config prompts/evaluation/promptfooconfig.synthesis.yaml",
+    "eval:gate": "node scripts/sync-promptfoo-tests.mjs && node scripts/eval-gate.mjs",
+    "eval:gate:rag": "node scripts/sync-rag-eval-tests.mjs && node scripts/eval-gate.mjs prompts/evaluation/promptfooconfig.rag-query.yaml",
+    "eval:gate:synthesis": "node scripts/eval-gate.mjs prompts/evaluation/promptfooconfig.synthesis.yaml"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.106.0",
+    "@supabase/supabase-js": "^2.49.8",
     "clsx": "^2.1.1",
     "lucide-react": "^0.564.0",
+    "mammoth": "^1.9.0",
     "next": "16.2.6",
+    "pdfjs-dist": "^5.2.133",
+    "posthog-js": "^1.398.0",
     "react": "^19",
     "react-dom": "^19",
     "tailwind-merge": "^3.3.1",
@@ -24,6 +37,7 @@
     "@types/react": "^19",
     "@types/react-dom": "^19",
     "postcss": "^8.5",
+    "promptfoo": "^0.120.0",
     "tailwindcss": "^4.2.0",
     "typescript": "5.7.3"
   }

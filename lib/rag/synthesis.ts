@@ -1,12 +1,7 @@
-import Anthropic from '@anthropic-ai/sdk'
+import { anthropic, CLAUDE_MODEL, TEMPERATURE_ANALYTICAL } from '@/lib/anthropic'
+import { loadPrompt } from '@/lib/load-prompt'
 
 import type { Citation, SynthesisResult } from '@/lib/types'
-
-const SYNTHESIS_MODEL = 'claude-sonnet-4-6'
-
-export const anthropic = new Anthropic({
-  apiKey: process.env.ANTHROPIC_API_KEY,
-})
 
 function parseJsonObject(text: string): unknown {
   try {
@@ -25,7 +20,7 @@ function coverageGapResponse(query: string): SynthesisResult {
   return {
     query,
     overview:
-      'We have no relevant evidence in your discovery corpus for this question. This is a coverage gap — not a search failure.',
+      'I cannot find this information in the provided document. This is a coverage gap — not a search failure.',
     claims: [],
     evidenceGaps: [
       'No artifacts in the connected corpus address this topic directly.',
@@ -52,29 +47,13 @@ export async function synthesizeAnswer(
     return coverageGapResponse(query)
   }
 
+  const system = await loadPrompt('synthesis')
+
   const response = await anthropic.messages.create({
-    model: SYNTHESIS_MODEL,
+    model: CLAUDE_MODEL,
     max_tokens: 4096,
-    temperature: 0.2,
-    system: `You are the intelligence layer for Product Discovery Intelligence (PDI), an organizational memory platform for product teams.
-
-Rules:
-1. Ground every claim in the provided source excerpts only.
-2. Cite sources using [n] notation matching Source numbers in the context.
-3. Surface conflicting evidence explicitly — never resolve conflicts silently.
-4. Name evidence gaps when the corpus is thin.
-5. Assign confidence (high | medium | low) per major claim with a one-sentence rationale.
-6. You are an evidence surface, not a decision engine — do not prescribe product decisions.
-
-Return ONLY valid JSON with this shape:
-{
-  "overview": "2-4 paragraph synthesis",
-  "claims": [{ "text": "...", "confidence": "high|medium|low", "confidenceRationale": "...", "citationIds": [1,2] }],
-  "conflicts": ["optional list of contradictions found"],
-  "evidenceGaps": ["optional list of what is missing"],
-  "nextQuestions": ["2-4 suggested follow-up investigations"],
-  "coverageState": "sufficient|limited|gap"
-}`,
+    temperature: TEMPERATURE_ANALYTICAL,
+    system,
     messages: [
       {
         role: 'user',

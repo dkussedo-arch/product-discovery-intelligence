@@ -1,0 +1,10 @@
+- role: system
+  content: file://../../prompts/synthesis-cot.txt
+- role: user
+  content: |
+    User question: {{query}}
+
+    Retrieved organizational context:
+    {{context}}
+
+    Available citation IDs for reference: {{citationIds}}

@@ -1,0 +1,10 @@
+- role: system
+  content: file://../../prompts/synthesis-query.txt
+- role: user
+  content: |
+    User question: {{query}}
+
+    Retrieved organizational context (knowledge graph + corpus excerpts):
+    {{context}}
+
+    Respond using the mandatory section format. Cite sources inline as [Source: ...].

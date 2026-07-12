@@ -1,0 +1,112 @@
+- description: tc-001 — Golden path — interview synthesis with clear actions
+  vars:
+    input: |
+      Dovetail synthesis — Enterprise onboarding churn (Jan 2026)
+      
+      We interviewed 12 enterprise admins. 9 of 12 said SSO setup blocked rollout in the first 14 days. Three churned accounts in Q4 cited onboarding friction as the primary cancellation reason.
+      
+      Recommended actions:
+      - Ship guided SSO wizard before Q2 roadmap lock (owner: Platform)
+      - Add IT-admin checklist to onboarding emails
+      - Re-interview 3 churned accounts in February
+    expected: '{"summary_contains":["SSO","onboarding","churn"],"action_items_min":2}'
+
+- description: tc-002 — Golden path — decision record with dissent
+  vars:
+    input: |
+      Decision: Prioritize Salesforce connector for Q1 over onboarding improvements.
+      Date: 2026-01-15 | Owner: Sarah Chen
+      Rationale: Largest deal in pipeline ($420k ARR) requested native Salesforce sync.
+      Linked assumption: Enterprise churn is driven by missing integrations.
+      Dissent (Research lead): January Dovetail synthesis showed onboarding as primary churn driver — this decision did not reference that research.
+    expected: '{"summary_contains":["Salesforce","onboarding","dissent"],"action_items_min":0}'
+
+- description: tc-003 — Incomplete information — vague insight, no numbers
+  vars:
+    input: |
+      Slack #product-discovery — thread fragment
+      
+      PM: Are we sure integrations are the churn driver?
+      Research: Onboarding keeps coming up in interviews. Hard to quantify yet.
+      PM: OK, let's keep an eye on it.
+    expected: '{"summary_contains":["onboarding"],"action_items_min":0}'
+
+- description: tc-004 — Incomplete information — problem stated, no resolution
+  vars:
+    input: |
+      Productboard cluster: 'Invite workflow confusing'
+      Status: Open | Votes: unknown (export truncated)
+      Notes: Multiple admins mentioned difficulty adding teammates after SSO is configured. No proposed fix documented.
+    expected: '{"summary_contains":["invite","SSO"],"action_items_min":0}'
+
+- description: tc-005 — Out of scope — social / facilities notice
+  vars:
+    input: |
+      Team lunch is at noon in the cafeteria. Please bring your badge. Vegetarian options available.
+    expected: '{"should_flag_not_found":true}'
+
+- description: tc-006 — Out of scope — IT security admin email
+  vars:
+    input: |
+      IT Security Notice
+      
+      Mandatory password reset required by Friday 5pm. Click the link in Okta to update your credentials. Contact helpdesk@company.com for lockouts.
+    expected: '{"should_flag_not_found":true}'
+
+- description: tc-007 — Hallucination trap — competitor mention without evidence
+  vars:
+    input: |
+      Assumption register entry #14
+      We believe Competitor Y won the Acme Corp deal because they have better enterprise SSO. Evidence: one Slack rumor, unverified. Status: Active.
+    expected: '{"summary_contains":["Competitor","SSO","rumor"],"action_items_min":0}'
+
+- description: tc-008 — Hallucination trap — qualitative claim inviting invented metrics
+  vars:
+    input: |
+      Exec brief excerpt
+      
+      'Onboarding improvements drove significant retention gains last quarter.' No figures, cohorts, or definitions of retention attached.
+    expected: '{"summary_contains":["onboarding","retention"],"action_items_min":0}'
+
+- description: tc-009 — Long formatted input — Confluence-style markdown export
+  vars:
+    input: |
+      # Q1 Discovery Review — Enterprise Segment
+      
+      ## Background
+      PM team reviewing churn in first 90 days for accounts >$50k ARR.
+      
+      ## Findings
+      | Theme | Mentions | Severity |
+      |-------|----------|----------|
+      | SSO setup delays | 18 | High |
+      | Invite workflow | 11 | Medium |
+      | Missing Salesforce sync | 6 | Low |
+      
+      ## Quotes
+      > "We lost two weeks waiting for IT to approve SAML." — Admin, FinServ
+      
+      ## Open questions
+      - Is Salesforce actually a churn driver or a sales objection?
+      - Do we have IT-admin persona research?
+      
+      ## Proposed next steps
+      1. Run 5 follow-up interviews with IT admins (Feb)
+      2. Prototype SSO wizard in staging by March 1
+      3. Pause Salesforce connector scoping until step 1 completes
+    expected: '{"summary_contains":["SSO","Salesforce"],"action_items_min":3}'
+
+- description: tc-010 — Long formatted input — noisy Slack thread with mixed signals
+  vars:
+    input: |
+      [2026-01-08 09:14] sarah: anyone have churn data for enterprise?
+      [2026-01-08 09:16] mike: checking amplitude, brb
+      [2026-01-08 09:22] lisa: january dovetail synthesis is in notion — onboarding > integrations from what i read
+      [2026-01-08 09:23] sarah: @lisa link?
+      [2026-01-08 09:24] lisa: https://notion.so/dovetail-jan-synthesis (sorry on mobile)
+      [2026-01-08 09:31] mike: amplitude query timed out. no numbers yet.
+      [2026-01-08 09:45] tom: sales still says we need salesforce first. pipeline deal pushing hard.
+      [2026-01-08 09:47] sarah: ok let's discuss in roadmap review thursday
+      [2026-01-08 09:48] mike: +1
+      [2026-01-08 09:52] random-bot: Reminder: submit timesheets by EOD Friday
+    expected: '{"summary_contains":["onboarding","Salesforce"],"action_items_min":0}'

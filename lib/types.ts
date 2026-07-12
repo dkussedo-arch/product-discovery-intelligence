@@ -70,3 +70,52 @@ export interface IngestRequest {
   author?: string
   tags?: string[]
 }
+
+export interface ExtractEntitiesRequest {
+  text: string
+}
+
+export interface AnalyzeRequest {
+  text: string
+}
+
+export interface DocumentAnalysisResult {
+  summary: string
+  key_points: string[]
+  action_items: string[]
+  confidence: 'HIGH' | 'MEDIUM' | 'LOW'
+  flags: string[]
+  error?: string
+}
+
+export type ChatRole = 'user' | 'assistant'
+
+export interface ChatMessage {
+  role: ChatRole
+  content: string
+}
+
+export interface ChatRequest {
+  messages: ChatMessage[]
+}
+
+export type EvaluationStatus =
+  | 'SUPPORTED'
+  | 'IMPLIED'
+  | 'NOT_FOUND'
+  | 'CONTRADICTED'
+
+export interface EvaluatedClaim {
+  id: string
+  claim: string
+  status: EvaluationStatus
+  evidence?: string
+  rationale?: string
+  sources?: string[]
+}
+
+export interface EvaluationResult {
+  title?: string
+  evaluatedAt?: string
+  claims: EvaluatedClaim[]
+}

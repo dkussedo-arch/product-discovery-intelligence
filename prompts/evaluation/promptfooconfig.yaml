@@ -1,0 +1,19 @@
+# yaml-language-server: $schema=https://promptfoo.dev/config-schema.json
+description: PDI document analysis eval gate — 85% minimum pass rate to deploy (10 test cases)
+
+prompts:
+  - file://document-analysis-prompt.yaml
+
+providers:
+  - id: anthropic:messages:claude-sonnet-4-6
+    config:
+      max_tokens: 2048
+      temperature: 0.2
+
+defaultTest:
+  assert:
+    - type: is-json
+    - type: javascript
+      value: file://assert-document-output.mjs
+
+tests: file://test-cases.promptfoo.yaml

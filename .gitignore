@@ -30,3 +30,7 @@ Thumbs.db
 # TypeScript
 *.tsbuildinfo
 next-env.d.ts
+.vercel
+.promptfoo/
+promptfoo-output/
+prompts/evaluation/latest-results.json

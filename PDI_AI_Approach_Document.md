@@ -4,9 +4,10 @@
 
 ---
 
-> **Version:** 1.0 · **Date:** June 2026 · **Status:** Production-Ready — For Engineering and Stakeholder Review
+> **Version:** 1.1 · **Date:** July 2026 · **Status:** Production-Ready — For Engineering and Stakeholder Review
 > **Author:** Product & AI Strategy · **Classification:** Internal — Confidential
 > **Intended Readers:** ML Engineers · Backend Engineers · CPO · Product Design Lead · Investors
+> **Revision note (v1.1):** Incorporates stress-test findings on graph liability, Slack ingestion risk, monitoring alert fatigue, production safety requirements, and RAG-first build sequencing.
 
 ---
 
@@ -65,6 +66,20 @@ PDI does not use a single AI architecture. It uses three interconnected patterns
 
 **Proactive Monitoring** handles the ambient intelligence layer — the pattern that does not wait to be queried. It continuously evaluates the knowledge graph for conditions (conflicts, expiries, coverage gaps) and surfaces notifications when those conditions are met. This is the pattern that prevents the $400,000 feature mistake: not by answering a query about prior research, but by alerting the team before the roadmap decision is made.
 
+### Build Sequence: RAG-First Validation (Non-Negotiable)
+
+The full seven-step pipeline described below is the **target architecture**, not the **launch architecture**. PDI must validate the core value hypothesis — that product teams find cross-corpus synthesis over their own discovery more useful than current alternatives — before incurring knowledge-graph cost and risk.
+
+**Phase 1 ships a three-step system only:**
+
+1. Ingest source artifacts → chunk → embed → store in Qdrant
+2. Hybrid retrieval (dense + sparse + RRF)
+3. Natural language synthesis with strict source attribution, uncertainty states, and visible provenance metadata
+
+This RAG-only system requires no Neo4j, no entity extraction pipeline, and no relationship inference. Two engineers can deliver it in six weeks. It cannot deliver proactive monitoring, assumption lifecycle tracking, decision provenance, or cross-artifact relationship surfacing — but it produces attributed synthesis over the organisation's full discovery corpus.
+
+**Decision rule:** If the RAG-only system achieves ≥75% query success rate with a design partner, build the knowledge graph on top of that foundation with customer data to train against. If it fails, iterate on retrieval and synthesis before adding graph complexity on top of a broken foundation. A bad synthesis in a seven-step pipeline could be caused by retrieval, chunking, the synthesis prompt, entity extraction, a corrupted graph edge, or an integration flaw — making root-cause diagnosis significantly harder than in a three-step pipeline.
+
 ### Full Data Pipeline
 
 The following describes the complete flow from raw source artifact to user-facing intelligence output. Each step is described with its input, transformation, output, and the AI vs. deterministic boundary decision.
@@ -74,6 +89,8 @@ The following describes the complete flow from raw source artifact to user-facin
 **Step 1 — Source Integration and Ingestion** *(Deterministic)*
 
 The ingestion layer connects to source systems via REST APIs, OAuth2, and webhooks. Target integrations at launch: Notion, Dovetail, Productboard, Miro, Confluence, Slack, Linear, Jira. For each source, a connector pulls new and modified content on a configurable schedule (default: every 15 minutes for active sources, hourly for archival sources). Raw content is stored in an append-only raw artifact store (PostgreSQL + S3 for large binary assets). The ingestion layer is entirely deterministic. No AI is applied at this step. The reason: AI-based filtering at ingestion creates irreversible information loss. Everything is ingested; filtering decisions are made downstream where they can be revised without re-ingesting.
+
+**Slack ingestion defaults to off.** Slack requires a separate, explicit opt-in at a higher administrative level than standard integration setup. The opt-in screen must describe specifically what kinds of content will be processed and require admin confirmation. A kill switch must allow Slack ingestion to be suspended immediately, with a 24-hour data purge option, without disrupting other integrations. This is built before any customer requests it — not as a reactive feature.
 
 *Input:* Raw API responses from source tools
 *Output:* Normalised artifact records with provenance metadata (source, author, timestamp, parent object, URL)
@@ -122,7 +139,11 @@ Relationship extraction runs as a second pass over extracted entity pairs. Relat
 - `updates` — newer Insight → prior Insight (temporal supersession)
 - `conflicts_with` — Insight A → Insight B (explicit contradiction)
 
-All inferred relationships are tagged with a confidence score (0.0–1.0) derived from the model's structured output. Relationships with confidence below 0.65 are stored but not surfaced in the UI by default — they are available for internal inspection and for improving the extraction pipeline.
+All inferred relationships are tagged with a **calibrated confidence score** (0.0–1.0), not a model self-reported certainty score used without calibration.
+
+**Calibrated confidence layer (required before graph relationships surface in production UI):** After entity extraction, run a lightweight discriminative model (fine-tuned BERT-class, not a frontier LLM) trained on human-labelled PDI relationship data to produce calibrated probability estimates with a known relationship to actual precision. Until approximately 500 labelled relationship pairs exist, use a **conservative fixed display threshold of 0.85** — not 0.65. Model self-reported confidence on implicit semantic relationships is poorly calibrated; a 0.65 threshold on an uncalibrated score is not a meaningful safety mechanism. Show fewer relationships. Lose less trust.
+
+Relationships below the display threshold are stored for pipeline improvement but not surfaced in the UI by default.
 
 *Input:* Normalised artifact text + provenance metadata
 *Output:* Structured entity records in PostgreSQL; relationship edges in a Neo4j graph database
@@ -157,6 +178,14 @@ The synthesis prompt enforces five non-negotiable constraints:
 4. Confidence level must be stated for each major claim (High / Medium / Low, with a one-sentence rationale)
 5. The response must include a "Next questions" section identifying what the organisation should investigate next given the current knowledge state
 
+**Provenance metadata block (first-class UI element, not a collapsed footnote):** Every synthesis response includes a visible structured summary at the top:
+
+> *This synthesis is based on N artifacts from M source systems. Evidence date range: [oldest] – [newest]. Relationship confidence distribution: [summary].*
+
+This shifts the user's cognitive model from "PDI told me X" to "PDI synthesised X from N sources, the most recent being last month" — producing appropriate epistemic humility.
+
+**Knowledge staleness as a first-class signal:** Synthesis must not treat a three-year-old interview transcript and a two-week-old experiment result with equal evidentiary weight. Apply a recency scoring function that down-weights older artifacts — configurable per knowledge type (customer problems decay faster than validated assumptions, which decay faster than documented decisions). Surface the "as of" date of the most relevant evidence in every synthesis response.
+
 The synthesis prompt is versioned in the prompt registry and changes to it go through the same evaluation gate as model changes. A change to the synthesis prompt is architecturally equivalent to a model update.
 
 *Input:* Retrieved context (chunks + graph entities + provenance metadata) + user query
@@ -180,6 +209,8 @@ Trigger conditions implemented at launch:
 | Duplicate experiment risk | A proposed experiment matches >0.85 cosine similarity with a prior experiment in the graph | Vector similarity (deterministic threshold) |
 
 Notifications are delivered in-product (Signal Feed surface) and optionally via Slack or email. Notification content is generated by a lighter, faster model — **Claude Haiku** — since these are short, structured outputs and latency matters more than reasoning depth.
+
+**Notification engagement model (required before Phase 3 ships):** Instrument notification-to-action conversion per user and per notification type. When a user's conversion rate on a notification type drops below threshold (indicating habituation), automatically reduce frequency for that user — do not wait for manual notification settings changes. Users evaluate notification streams emotionally, not statistically: three irrelevant notifications in a row produces a "this is noise" label that makes the next genuinely critical alert invisible. An un-actioned monitoring layer firing three times daily will be disabled by week six; an adaptive layer that learns what each user responds to retains value.
 
 *Technology:* Celery beat scheduler; Neo4j Cypher queries for graph triggers; Qdrant similarity queries for duplicate detection; Claude Haiku for notification content generation
 
@@ -215,6 +246,8 @@ The system must handle data quality degradation gracefully and visibly, never si
 
 **Sparse knowledge graphs:** When an organisation has fewer than the minimum viable artifacts, the query interface surfaces a "Coverage low — here is what we found, and here is what is missing" response format rather than generating a confident synthesis from thin evidence.
 
+**Very small corpora (<50 artifacts):** Early-stage customers will query before the graph is viable. When the corpus is so small that almost every document appears in almost every response, the system must detect this condition and surface it explicitly — e.g., "This synthesis cites 42 of your 48 total artifacts; organisational coverage on this topic is still thin." Without this guard, a new PM receives a confident synthesis citing 80% of the entire discovery history for a single claim and mistakenly believes they have comprehensive organisational knowledge.
+
 **Contradictory source data:** When entity extraction surfaces conflicting facts in the same corpus (e.g., two documents assert different customer problem priorities), the conflict is recorded as a `conflicts_with` relationship in the knowledge graph and surfaced explicitly in any synthesis that draws on both sources. The model is explicitly prompted not to resolve contradictions by choosing a side — it must present both versions with their sources.
 
 **Low-quality OCR output:** Visual artifacts processed through OCR receive a quality confidence score. Artifacts with OCR confidence below 0.70 are stored but flagged in the provenance metadata. Synthesis responses that draw on low-confidence OCR content include an explicit note: "This citation comes from a visual artifact with low extraction confidence — verify the original."
@@ -227,28 +260,74 @@ The system must handle data quality degradation gracefully and visibly, never si
 
 Silent failures are prioritised over loud failures throughout this section. A silent failure — one that looks correct but is wrong — is categorically more dangerous in a knowledge management product than a loud one, because it erodes trust in the platform's intelligence without giving the user information that would allow them to correct it.
 
+The three highest-probability production failure modes — graph liability, Slack citation harm, and monitoring alert fatigue — are documented first. These represent the most likely paths to irreversible customer trust loss.
+
 ---
 
-### Failure Mode 1 — Hallucinated Entity Relationships (Silent, Severity: Critical)
+### Failure Mode 1 — The Knowledge Graph Becomes a Liability Before It Becomes an Asset (Silent, Severity: Critical)
+
+**What goes wrong:** False relationships in the knowledge graph compound multiplicatively, not additively. Entity extraction from unstructured PM documents has an inherent false positive rate. If the model incorrectly infers that Assumption A is supported by Interview B, every future synthesis traversing either node carries that corrupted link. Graph degradation accelerates with node count because traversal paths multiply.
+
+**Why it occurs in this system specifically:** Discovery documents are written informally. PMs do not write "This assumption is based on Interview #23." Relationship inference from proximity, shared vocabulary, and temporal co-occurrence is probabilistic and produces false positives — especially when documents share terminology without genuine semantic connection.
+
+**Practical consequence:** By ~6 months of real ingestion (500–800 documents), the graph may contain enough false relationships that synthesis responses are plausible-sounding but structurally unreliable. Users cannot identify which specific claims are wrong because provenance chains look correct. They simply notice occasional misleading output and stop trusting the platform — the highest-impact trust failure in the product.
+
+**Severity:** Critical. A false relationship propagates through every downstream query that traverses that edge.
+
+**Mitigation (revised — addresses cause, not symptom):**
+- Replace model self-reported confidence with a **calibrated confidence layer** (see Step 4). Until ~500 labelled relationship pairs exist, use display threshold **0.85**, not 0.65.
+- Prioritise relationship inference **precision over recall** — better to miss a true link than assert a false one.
+- Human confirmation required before any inferred relationship is elevated to `validated` status.
+- "Why is this connected?" explainability surface on every displayed relationship.
+- Red-team evaluation harness with adversarial document pairs on every model update.
+- **Do not ship graph-augmented retrieval until RAG-only query success rate is validated** (see Build Sequence: RAG-First Validation).
+
+---
+
+### Failure Mode 2 — Slack Ingestion Produces a Politically Toxic Knowledge Graph (Silent, Severity: Critical)
+
+**What goes wrong:** A synthesis accurately cites a real Slack message in a context where that citation is professionally or legally problematic — e.g., candid internal commentary surfaced six months later to a different audience.
+
+**Why it occurs in this system specifically:** Product teams make their most candid, contextually rich statements about customer problems and internal decisions in Slack — exactly why Slack is high-signal. Those same messages frequently contain language that a content classifier cannot reliably distinguish from discovery-relevant candid analysis when both are expressed in the same informal register. Channel-level opt-in and lightweight classifiers are necessary but insufficient.
+
+**Severity:** Critical. This is not a security breach — it is an **irreversibility problem**. Once a synthesis containing a sensitive citation is delivered to an unintended stakeholder, the damage cannot be undone. One customer cancellation and the story spreads.
+
+**Mitigation (revised):**
+- **Slack ingestion defaults to off** with separate admin-level opt-in and explicit content description (see Step 1).
+- Kill switch with immediate suspension and 24-hour purge option.
+- Direct messages and private channels excluded by default with no option to include.
+- Users can flag inappropriate citations; flagged citations removed from retrievable index.
+- Synthesis provenance block makes Slack-sourced evidence visibly identifiable before users act on claims.
+
+---
+
+### Failure Mode 3 — The Proactive Monitoring Layer Trains Users to Ignore It (Silent, Severity: Critical)
+
+**What goes wrong:** The monitoring layer fires correctly but is not read. Users do not evaluate notification streams statistically — three irrelevant notifications in a row produces a "this is noise" cognitive label, even if seven relevant ones follow.
+
+**Why it occurs in this system specifically:** Proactive AI notifications follow a documented adoption curve: initial engagement → alert fatigue → habitual dismissal. A false positive rate target of <20% (1 in 5 irrelevant) feels worse in practice than the number suggests. A team that learns to dismiss assumption conflict notifications will dismiss the one that would have prevented a $400,000 feature mistake.
+
+**Severity:** Critical for product differentiation. Monitoring is architecturally the most important and experientially the most fragile component — the feature that makes PDI more than a better search tool.
+
+**Mitigation (revised):**
+- **Notification engagement model** with per-user, per-type adaptive throttling (see Step 7).
+- Track **notification-to-action conversion rate** as a launch-gate metric — not just false positive rate.
+- Reduce frequency automatically when engagement drops; do not rely on users configuring settings.
+- Phase 3 must not ship monitoring without engagement instrumentation in place.
+
+---
+
+### Failure Mode 4 — Hallucinated Entity Relationships (Silent, Severity: Critical)
 
 **What goes wrong:** The entity extraction model infers a relationship between two entities that does not exist in the source material — for example, asserting that an assumption was informed by a specific customer interview when no such connection is present in the text.
 
-**Why it occurs in this system specifically:** Discovery documents are written informally. PMs do not write "This assumption is based on Interview #23." The relationship inference model must infer connection from proximity, shared vocabulary, and temporal co-occurrence. This inference is probabilistic and will produce false positives, especially when two documents share terminology without a genuine semantic relationship.
+**Relationship to Failure Mode 1:** This is the atomic error that Failure Mode 1 describes at scale. Individual hallucinated edges become graph-wide liability as the corpus grows.
 
-**Severity:** Critical. A false relationship in the knowledge graph propagates through every downstream query that traverses that edge. A PM who trusts an incorrect provenance link makes a decision on a foundation that does not exist.
-
-**Frequency estimate:** Medium-high in early iterations without sufficient fine-tuning data; reduced to low-medium after 3–6 months of production feedback.
-
-**Mitigation:**
-- All inferred relationships are tagged with a confidence score. Relationships below 0.65 are stored but not displayed by default in the UI.
-- The confidence threshold for relationship display is configurable by workspace admins, allowing power users to lower it and developers to inspect borderline cases.
-- Every relationship displayed in the UI includes a "Why is this connected?" explainability surface showing the evidence the model used to infer the relationship.
-- Human confirmation is required before any inferred relationship is elevated to `validated` status in the assumption register. The model suggests; the user confirms.
-- A dedicated red-team evaluation harness tests relationship inference against adversarial document pairs (documents that share vocabulary but have no genuine relationship) on every model update.
+**Mitigation:** See Failure Mode 1. Additionally: human-in-the-loop confirmation for all extracted entities in Phase 2 until extraction precision exceeds 92% per entity type on the validation set.
 
 ---
 
-### Failure Mode 2 — Stale Assumption Surfaced as Current (Silent, Severity: Critical)
+### Failure Mode 5 — Stale Assumption Surfaced as Current (Silent, Severity: Critical)
 
 **What goes wrong:** An assumption that was invalidated by new evidence continues to appear in briefings and query responses as a standing, active assumption, because the invalidation was not captured in the knowledge graph.
 
@@ -264,7 +343,7 @@ Silent failures are prioritised over loud failures throughout this section. A si
 
 ---
 
-### Failure Mode 3 — Low-Relevance Retrieval (Silent, Severity: High)
+### Failure Mode 6 — Low-Relevance Retrieval (Silent, Severity: High)
 
 **What goes wrong:** The retrieval layer returns documents that are topically adjacent to the query but not semantically relevant to the specific question, producing a synthesis that sounds authoritative but answers a slightly different question than the one asked.
 
@@ -280,7 +359,7 @@ Silent failures are prioritised over loud failures throughout this section. A si
 
 ---
 
-### Failure Mode 4 — Over-Confident Synthesis Without Sufficient Evidence (Silent, Severity: High)
+### Failure Mode 7 — Over-Confident Synthesis Without Sufficient Evidence (Silent, Severity: High)
 
 **What goes wrong:** The synthesis model generates a fluent, well-structured response that presents conclusions confidently despite the retrieved context being thin, contradictory, or not directly relevant to the query.
 
@@ -295,22 +374,7 @@ Silent failures are prioritised over loud failures throughout this section. A si
 
 ---
 
-### Failure Mode 5 — Integration Scope Creep from Slack Ingestion (Silent, Severity: Medium)
-
-**What goes wrong:** The Slack integration ingests personal, politically sensitive, or out-of-scope conversations that were not intended to be part of the organisation's discovery knowledge base, and these conversations surface in query responses.
-
-**Why it occurs in this system specifically:** Slack channels contain high-signal discovery content (the informal reasoning that surrounds formal decisions) but also noise, personal communication, and sensitive HR or political discussions. Channel-level scope filtering (configured at onboarding) reduces but does not eliminate this risk.
-
-**Severity:** Medium. Reputational and trust risk more than accuracy risk, but trust risk in a knowledge management product is an existential concern.
-
-**Mitigation:**
-- Slack integration is opt-in at the channel level. Default scope: only channels explicitly approved by a workspace admin. Direct messages and private channels are excluded by default with no option to include them.
-- A content classification step runs over all Slack content before entity extraction, filtering out messages classified as personal communication, HR-related, or unrelated to product development. This classifier uses a lightweight, fast model (Claude Haiku) to minimise latency cost.
-- Users can flag any synthesis that cites a Slack message as inappropriate. Flagged citations are removed from the knowledge graph and the pattern is added to the Slack classifier training set.
-
----
-
-### Failure Mode 6 — Loud Failures — Integration Downtime (Visible, Severity: Medium)
+### Failure Mode 8 — Loud Failures — Integration Downtime (Visible, Severity: Medium)
 
 **What goes wrong:** A source system API is unavailable, rate-limited, or changes its schema, causing the ingestion pipeline to fail and knowledge graph freshness to degrade.
 
@@ -322,6 +386,35 @@ Silent failures are prioritised over loud failures throughout this section. A si
 - Per-integration health monitoring with automatic alerting to the engineering team within 5 minutes of a failed sync.
 - An integration abstraction layer that buffers against API schema changes by translating new API responses against a versioned internal schema — schema mismatches trigger an alert rather than a silent data corruption.
 - Freshness indicators are displayed per-source in the UI so users know which integrations are stale before trusting a synthesis.
+
+---
+
+### Edge Cases That Produce Bad or Harmful Output
+
+These are not model hallucinations — they are cases where technically correct extraction or synthesis produces organisational harm.
+
+| Edge case | Mechanism | Required handling |
+|---|---|---|
+| **Deliberately implicit assumptions** | Senior PMs maintain undocumented assumptions to avoid forced conversations. Entity extraction surfaces them in the Assumption Register, forcing conversations the team deliberately avoided — including politically sensitive headcount, pivot, or competitive intelligence topics. | Contributor consent layer (see Production Safety). Flag extracted assumptions from informal sources as `inferred — unconfirmed` until owner validates. Never auto-publish sensitive inferred assumptions to workspace-wide surfaces. |
+| **Terminated employee's work cited authoritatively** | HR revokes source-system access; PDI retains all artifacts. Synthesis cites departed PM's research with same confidence as current team members. | Contributor status metadata on artifacts (`active` / `departed` / `disputed`). Synthesis down-weights or flags citations from departed contributors when reliability is contested. |
+| **Parallel squads researching the same problem** | Squad A (preliminary) and Squad B (validated) work in parallel without coordination. Cross-project retrieval synthesises both into apparent internal contradiction without weighting recency or methodological quality. | Recency and validation-status weighting in synthesis. Surface parallel research tracks explicitly rather than false organisational uncertainty. |
+| **Post-hoc evidence synthesis for decided outcomes** | In performative discovery cultures, PDI is used to generate post-hoc evidence summaries for decisions already made — functioning as a confirmation bias engine, not exploration. | Provenance block + explicit "evidence date range" metadata. Optional query intent classification flagging confirmation-seeking patterns for PM self-awareness (not blocking). |
+| **Corpus below 50 artifacts** | Almost every document retrieved for every query. Synthesis appears highly relevant because context perfectly matches query, but cites majority of entire organisational history. | Small-corpus detection with explicit coverage ratio in provenance block (see Degradation Handling). |
+
+---
+
+### Production Safety Requirements
+
+The following are **launch prerequisites** for production-safe AI, not optional enhancements:
+
+| Requirement | Implementation | Phase |
+|---|---|---|
+| **Calibrated confidence** | Discriminative calibrator on relationship scores; 0.85 display threshold until ~500 labelled pairs | Phase 2 (before graph UI) |
+| **Contributor consent and visibility** | Before indexing: notify contributor that content from [source] will build the knowledge graph and show what will be extracted. Indexing visibility improves source quality and is an ethical requirement. | Phase 1 (Notion) / Phase 2 (all sources) |
+| **Knowledge staleness model** | Recency scoring by knowledge type; "as of" dates on synthesis | Phase 1 (basic) / Phase 2 (full) |
+| **Synthesis provenance metadata block** | Visible top-of-response: N artifacts, M sources, date range, confidence distribution | Phase 1 |
+| **Notification engagement model** | Per-user adaptive throttling based on notification-to-action conversion | Phase 3 (before monitoring ships) |
+| **Slack kill switch** | Default off; admin opt-in; immediate suspend + 24h purge | Phase 2 (before Slack ships) |
 
 ---
 
@@ -337,6 +430,7 @@ The following AI-initiated actions require explicit human confirmation before th
 
 | AI Action | Confirmation Required From | Why |
 |---|---|---|
+| Indexing an artifact into the knowledge graph | Original contributor or workspace admin | Consent and visibility improve source quality; extraction without consent is an organisational harm distinct from technical inaccuracy |
 | Elevating an inferred relationship to `validated` status | Assumption or insight owner | Inferred relationships carry uncertainty; validated status implies human review |
 | Invalidating or modifying an existing assumption | PM who owns the assumption | Assumptions are high-stakes; automatic invalidation could corrupt a live decision foundation |
 | Creating a new Decision record from conversational content | Decision owner | Decisions must be deliberately owned; auto-creation creates accountability ambiguity |
@@ -358,10 +452,11 @@ The distinction between "low confidence" and "coverage gap" is intentional. Most
 
 Every synthesised output includes:
 
-1. **Inline citations** — each claim in the synthesis is superscripted with a source reference number
-2. **Source panel** — a collapsible sidebar listing all artifacts cited, with title, author, date, and a direct link to the original artifact in the source tool
-3. **Relationship trail** — for synthesised claims that draw on graph traversal (e.g., "this assumption was informed by this insight which came from this interview"), a visual chain showing the reasoning path is available on click
-4. **Confidence breakdown** — for each cited source, the retrieval confidence score is available in the source panel for power users
+1. **Provenance summary block** — visible at top: artifact count, source system count, evidence date range, relationship confidence distribution (not collapsed)
+2. **Inline citations** — each claim in the synthesis is superscripted with a source reference number
+3. **Source panel** — a collapsible sidebar listing all artifacts cited, with title, author, date, contributor status, and a direct link to the original artifact in the source tool
+4. **Relationship trail** — for synthesised claims that draw on graph traversal (e.g., "this assumption was informed by this insight which came from this interview"), a visual chain showing the reasoning path is available on click
+5. **Confidence breakdown** — for each cited source, the retrieval confidence score is available in the source panel for power users
 
 The UI design principle: provenance should be one click away, never more. A PM who wants to verify a claim should be able to reach the original source artifact in under three seconds.
 
@@ -393,6 +488,7 @@ PDI requires two distinct evaluation layers that must not be conflated: **intrin
 | Hallucination rate | % of synthesis claims not attributable to any retrieved source artifact | Human evaluation on 50 random query-response pairs per month | < 1% | ML Lead |
 | Source attribution completeness | % of synthesis claims that include at least one valid source citation | Automated (citation resolver checks every response) | 100% | Backend Engineer |
 | Query success rate | % of queries where user confirms response was helpful within 30 seconds | In-product feedback (thumbs up/down) | ≥ 75% | PM |
+| Notification-to-action conversion | % of proactive notifications that lead to a user action within 7 days | In-product event tracking per notification type | ≥ 40% at GA | PM |
 | P95 query response latency | 95th percentile end-to-end latency from query submission to first synthesis token | APM instrumentation | < 8 seconds | Backend Engineer |
 
 ### Downstream Outcome Metrics
@@ -417,7 +513,7 @@ The evaluation test set is built from real customer data, with explicit consent 
 - 200 artifact-entity annotation pairs (human-labelled ground truth for extraction evaluation)
 - 50 manually constructed query-expected-answer pairs covering the full range of query types (specific artifact retrieval, topic synthesis, gap identification, assumption status queries)
 - 20 adversarial pairs (documents sharing vocabulary without genuine relationship, for relationship inference red-teaming)
-- 10 known edge cases derived from the failure mode analysis (contradictory evidence, sparse knowledge graphs, expired assumptions)
+- 10 known edge cases derived from the failure mode analysis (contradictory evidence, sparse knowledge graphs, expired assumptions, implicit assumptions, departed contributors, parallel squad research, post-hoc confirmation queries, small-corpus over-citation)
 
 The test set is version-controlled in the repository alongside the model code. It grows with every identified failure mode.
 
@@ -428,6 +524,10 @@ Before any model update (embedding model, extraction model, synthesis model) is 
 **Regression Suite**
 
 Every model or prompt update must clear the full regression suite (the 200-item test set) before deployment. A regression is defined as any metric dropping more than 2 percentage points from the previous production baseline. Regressions block deployment and require investigation before re-attempting.
+
+**Promptfoo deploy gate (automated)**
+
+Do **not** deploy prompt or model changes until the Promptfoo eval pass rate is **≥ 85%**. World-class AI products target **95%+**. The repository enforces this via `pnpm eval:gate`, which runs structured test cases in `prompts/evaluation/test-cases.json` (e.g., tc-001 good document, tc-002 not-found flag) and exits non-zero if the pass rate falls below 85%.
 
 **In-Product Feedback Loop**
 
@@ -445,29 +545,34 @@ Each phase ends with an evaluation gate. The system must clear measurable qualit
 
 ### Phase 1 — Minimum Viable Intelligence (Weeks 1–8)
 
-**Objective:** Build a working end-to-end loop from artifact ingestion to natural language query response, on one integration (Notion), for one customer organisation (a design partner).
+**Objective:** Build and validate a **RAG-only three-step system** — ingest → hybrid retrieve → attributed synthesis — on one integration (Notion), for one design partner. No knowledge graph.
 
 **Deliverables:**
 - Notion integration with incremental sync (Step 1 complete)
 - Chunking and embedding pipeline with Qdrant storage (Steps 2–3 complete)
-- Basic RAG query interface: natural language in, attributed synthesis out (Step 6, simplified)
+- Hybrid retrieval (dense + sparse + RRF)
+- RAG query interface: natural language in, attributed synthesis out (Step 6, simplified — no graph augmentation)
+- **Provenance metadata block** on every synthesis (artifact count, sources, date range)
+- **Basic recency down-weighting** in synthesis prompt
+- Contributor visibility notice before Notion indexing
 - Source attribution: every synthesis claim links to an original Notion page
-- Minimal web UI: a single query box and a response surface with citations
+- Minimal web UI: query box, response surface with citations, provenance block
 
 **Intentionally excluded from Phase 1:**
 - Knowledge graph construction (Neo4j, entity extraction) — deferred to Phase 2
 - Proactive monitoring — deferred to Phase 3
-- All integrations except Notion
+- Slack and all integrations except Notion
 
-**Rationale for exclusions:** The highest-risk assumption in the system is that a RAG pipeline over unstructured discovery documents produces synthesis output that a PM finds genuinely useful — more useful than searching Notion directly. This assumption must be validated before the engineering cost of the knowledge graph and the multi-integration layer is incurred. Phase 1 tests this assumption with the lowest possible investment.
+**Rationale for exclusions:** Validate that cross-corpus synthesis produces output a PM finds genuinely useful — more useful than searching Notion directly — before incurring graph cost, graph liability risk, and multi-integration complexity. Phase 1 is an evaluation instrument, not a feature-complete product.
 
 **Evaluation gate (must clear before Phase 2):**
-- Query success rate ≥ 70% on design partner queries (measured with in-product feedback over 2 weeks of design partner use)
+- Query success rate ≥ 70% on design partner queries (measured with in-product feedback over 2 weeks)
 - Source attribution completeness: 100%
 - Hallucination rate < 2% (initial threshold — will tighten in Phase 2)
-- Design partner provides qualitative confirmation that the output is more useful than their current Notion search
+- Provenance block present on 100% of synthesis responses
+- Design partner provides qualitative confirmation that output is more useful than their current Notion search
 
-**Primary risk:** RAG over unstructured PM documents produces synthesis that is topically relevant but insufficiently specific. The design partner finds the output too general to be actionable. Mitigation: use a higher-chunk-resolution configuration (200-token chunks with 100-token overlap) for Phase 1, sacrificing context breadth for specificity, and tune based on feedback.
+**Primary risk:** RAG over unstructured PM documents produces synthesis that is topically relevant but insufficiently specific. Mitigation: higher-chunk-resolution configuration (200-token chunks with 100-token overlap) and prompt iteration via Promptfoo before adding graph complexity.
 
 ---
 
@@ -477,11 +582,14 @@ Each phase ends with an evaluation gate. The system must clear measurable qualit
 
 **Deliverables:**
 - Entity extraction pipeline (Claude claude-sonnet-4-6, five entity types)
+- **Calibrated confidence layer** for relationship scores; 0.85 display threshold until labelled data sufficient
 - Relationship inference and Neo4j graph construction
 - Graph-augmented retrieval (vector search + graph traversal fusion)
-- Dovetail, Productboard, and Slack integrations
+- Dovetail and Productboard integrations
+- **Slack integration with kill switch** (default off, admin opt-in, purge capability) — only after calibrated confidence and citation flagging are in place
 - Assumption Register UI: create, view, link to evidence, track status
 - Multi-source synthesis: query responses that cite across multiple source systems
+- Contributor consent flow for all indexed sources
 
 **Evaluation gate (must clear before Phase 3):**
 - Entity extraction precision ≥ 90%, recall ≥ 80% (on design partner annotated test set)
@@ -507,8 +615,9 @@ Each phase ends with an evaluation gate. The system must clear measurable qualit
 - Enterprise-grade access controls and permission mapping from source tools
 
 **Evaluation gate (general availability launch gate):**
-- All seven intrinsic quality metrics in Section 6 at or above their stated launch thresholds
-- Proactive monitoring false positive rate < 20% (fewer than 1 in 5 notifications is dismissed as irrelevant by the recipient)
+- All intrinsic quality metrics in Section 6 at or above their stated launch thresholds
+- Proactive monitoring false positive rate < 20%
+- **Notification-to-action conversion rate ≥ 40%** (adaptive throttling active)
 - P95 query latency < 8 seconds under simulated load of 100 concurrent users
 - Integration setup time (3 source systems) < 30 minutes for a non-technical user
 - At least two design partners express willingness to convert to paid contracts at the proposed pricing tier
@@ -521,9 +630,9 @@ Each phase ends with an evaluation gate. The system must clear measurable qualit
 
 **Probability:** High. **Impact:** Critical.
 
-**Trigger condition:** As the knowledge graph grows beyond 10,000 artifact nodes, the density of potential relationships grows quadratically. The relationship inference model will produce an increasing number of false positive connections, and the signal-to-noise ratio of the graph will degrade faster than the accuracy of individual inferences improves.
+**Trigger condition:** As the knowledge graph grows beyond 10,000 artifact nodes, false positive relationship density increases and synthesis traversing corrupted edges produces plausible but structurally unreliable output — often before individual inference accuracy metrics detect degradation.
 
-**What to do if it materialises:** Implement domain-specific fine-tuning of the relationship inference model using the labelled relationship data accumulated from Phase 2's human-in-the-loop confirmation workflow. Prioritise relationship inference precision over recall — it is better to miss a true relationship than to assert a false one. Consider constraining relationship inference to within-initiative scope for the first 12 months, and expanding to cross-initiative inference only once within-initiative accuracy is above 90%.
+**What to do if it materialises:** Halt cross-initiative graph traversal. Raise display threshold to 0.90. Implement domain-specific fine-tuning using labelled relationship data from human-in-the-loop confirmation. Prioritise precision over recall. Consider rolling back to RAG-only retrieval for affected workspaces while graph is audited. See Failure Mode 1.
 
 ---
 
@@ -566,7 +675,7 @@ The choice between `text-embedding-3-large` (OpenAI) and `voyage-3-large` (Voyag
 Real-time extraction means every new artifact is processed immediately — users see new entities appear minutes after a source document is updated. Batch extraction is cheaper, more controllable, and easier to debug, but introduces a delay between artifact creation and knowledge graph availability. For the Phase 1 MVP, batch is the right default. For Phase 2, the answer depends on how frequently design partners create new artifacts and how time-sensitive their retrieval needs are. Measure this in Phase 1 rather than assuming.
 
 **OQ-3 (Trust): What is the right default confidence threshold for displaying inferred relationships?**
-The current proposal is 0.65. This is an engineering assumption. It may be too permissive (surfaces too many false relationships and erodes trust) or too conservative (hides valid connections and reduces the perceived value of the graph). This threshold should be set empirically by showing design partners relationships at varying confidence levels and measuring which threshold maximises the ratio of "marked as useful" to "marked as incorrect."
+The interim proposal is **0.85 on calibrated scores** until ~500 labelled relationship pairs exist — not 0.65 on model self-reported certainty. Uncalibrated model confidence is poorly correlated with actual precision on implicit semantic relationships. This threshold should be validated empirically by showing design partners relationships at varying confidence levels and measuring useful-to-incorrect ratio. Lower thresholds only after the calibrated layer is trained and validated.
 
 **OQ-4 (Compliance): Does the Anthropic API Terms of Service for Claude models conflict with any design partner's data policies?**
 Anthropic's API terms include data processing terms that most enterprise customers will require a review of before allowing production customer data to be sent through the API. This legal review must happen in the first four weeks — not after a design partner's security team raises it as a blocker. If the review reveals a conflict, the private deployment option (Risk 4) becomes a Phase 2 priority rather than a Phase 3 consideration.
@@ -587,11 +696,12 @@ The monitoring layer alerts on assumption conflicts and expiries. If the assumpt
 | Synthesis model | Claude claude-opus-4-6 | GPT-4o, Gemini 1.5 Pro | 200K context window; superior instruction-following for complex attribution constraints |
 | Notification generation | Claude Haiku | GPT-4o-mini | Speed and cost — notifications are short, structured, low-reasoning tasks |
 | Graph database | Neo4j | PostgreSQL with recursive CTEs, Amazon Neptune | Native Cypher for graph traversal; self-hostable; well-supported Python client |
+| Relationship confidence | Calibrated BERT-class discriminator (target) | Model self-reported scores only | Uncalibrated LLM confidence is not a safety mechanism; 0.85 interim threshold |
 | Re-ranking | Cohere Rerank or Voyage AI Rerank | Cross-encoder (local) | Evaluated quarterly; avoid single-vendor lock-in at the retrieval layer |
 | Observability | LangSmith or Weights & Biases | MLflow, Arize | LangSmith for prompt versioning and trace inspection; W&B for training metrics if fine-tuning begins |
 
 ---
 
-*This document defines the AI architecture, evaluation framework, and build roadmap for Product Discovery Intelligence as of June 2026. It will be updated at each phase gate as empirical findings from design partner usage replace provisional assumptions. The version history is maintained in the linked decision record.*
+*This document defines the AI architecture, evaluation framework, and build roadmap for Product Discovery Intelligence as of July 2026 (v1.1). It will be updated at each phase gate as empirical findings from design partner usage replace provisional assumptions. The version history is maintained in the linked decision record.*
 
 *Next review: End of Phase 1 (Week 8) · Owner: ML Lead + Product Manager · Classification: Internal — Confidential*

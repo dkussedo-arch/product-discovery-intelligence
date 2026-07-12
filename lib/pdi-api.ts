@@ -14,15 +14,36 @@ export interface IngestListResponse {
 }
 
 function resolveApiBase(explicitBase?: string): string {
-  if (explicitBase) {
-    return explicitBase.replace(/\/$/, '')
+  if (explicitBase?.trim()) {
+    return explicitBase.trim().replace(/\/$/, '')
   }
 
   if (typeof window !== 'undefined') {
-    return ''
+    return window.location.origin
   }
 
   return process.env.NEXT_PUBLIC_PDI_API_URL?.replace(/\/$/, '') ?? ''
+}
+
+async function apiFetch(
+  path: string,
+  init: RequestInit | undefined,
+  apiBase?: string
+): Promise<Response> {
+  const base = resolveApiBase(apiBase)
+  const url = `${base}${path}`
+
+  try {
+    return await fetch(url, init)
+  } catch {
+    const onLocalDev =
+      typeof window !== 'undefined' && base === window.location.origin
+    throw new Error(
+      onLocalDev
+        ? 'Cannot connect to the API. Start the dev server from the repo root: npx.cmd pnpm run dev'
+        : `Cannot connect to ${base}. Check the API base URL and that the backend is running.`
+    )
+  }
 }
 
 async function parseJson<T>(response: Response): Promise<T> {
@@ -44,12 +65,15 @@ export async function queryMemory(
   query: string,
   apiBase?: string
 ): Promise<SynthesisResult> {
-  const base = resolveApiBase(apiBase)
-  const response = await fetch(`${base}/api/query`, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ query }),
-  })
+  const response = await apiFetch(
+    '/api/query',
+    {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ query }),
+    },
+    apiBase
+  )
 
   return parseJson<SynthesisResult>(response)
 }
@@ -58,12 +82,15 @@ export async function ingestArtifact(
   payload: IngestRequest,
   apiBase?: string
 ): Promise<{ artifact: ArtifactSummary & { content?: string } }> {
-  const base = resolveApiBase(apiBase)
-  const response = await fetch(`${base}/api/ingest`, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify(payload),
-  })
+  const response = await apiFetch(
+    '/api/ingest',
+    {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload),
+    },
+    apiBase
+  )
 
   return parseJson(response)
 }
@@ -71,7 +98,6 @@ export async function ingestArtifact(
 export async function listArtifacts(
   apiBase?: string
 ): Promise<IngestListResponse> {
-  const base = resolveApiBase(apiBase)
-  const response = await fetch(`${base}/api/ingest`, { method: 'GET' })
+  const response = await apiFetch('/api/ingest', { method: 'GET' }, apiBase)
   return parseJson(response)
 }

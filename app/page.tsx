@@ -1,4 +1,5 @@
 import { DiscoveryWorkspace } from '@/components/discovery-workspace'
+import { FileUploadLazy } from '@/components/file-upload-lazy'
 import { Github, Layers, Link2, Shield } from 'lucide-react'
 import Link from 'next/link'
 
@@ -39,6 +40,10 @@ export default function HomePage() {
           </nav>
         </div>
       </header>
+
+      <div className="mx-auto max-w-6xl px-4 pt-10">
+        <FileUploadLazy />
+      </div>
 
       <DiscoveryWorkspace />
 

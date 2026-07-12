@@ -1,0 +1,121 @@
+[
+  {
+    "id": "tc-001",
+    "name": "Golden path — interview synthesis with clear actions",
+    "category": ["golden_path"],
+    "system_prompt_ref": "prompts/document-analysis.txt",
+    "input": "Dovetail synthesis — Enterprise onboarding churn (Jan 2026)\n\nWe interviewed 12 enterprise admins. 9 of 12 said SSO setup blocked rollout in the first 14 days. Three churned accounts in Q4 cited onboarding friction as the primary cancellation reason.\n\nRecommended actions:\n- Ship guided SSO wizard before Q2 roadmap lock (owner: Platform)\n- Add IT-admin checklist to onboarding emails\n- Re-interview 3 churned accounts in February",
+    "perfect_output": "Valid JSON with a 2–3 sentence summary citing SSO delays, 14-day rollout block, and churn link. key_points include interview count (12), SSO friction theme, and churn attribution. action_items list the three stated recommendations verbatim or closely paraphrased. confidence: HIGH. flags: empty or minor gaps only.",
+    "failure_mode": "Golden-path regression — model omits stated action items, drops the churn connection, or returns prose instead of JSON.",
+    "expected": {
+      "summary_contains": ["SSO", "onboarding", "churn"],
+      "action_items_min": 2
+    }
+  },
+  {
+    "id": "tc-002",
+    "name": "Golden path — decision record with dissent",
+    "category": ["golden_path"],
+    "input": "Decision: Prioritize Salesforce connector for Q1 over onboarding improvements.\nDate: 2026-01-15 | Owner: Sarah Chen\nRationale: Largest deal in pipeline ($420k ARR) requested native Salesforce sync.\nLinked assumption: Enterprise churn is driven by missing integrations.\nDissent (Research lead): January Dovetail synthesis showed onboarding as primary churn driver — this decision did not reference that research.",
+    "perfect_output": "Summary captures the Q1 Salesforce prioritization, pipeline deal rationale, and the dissent about onboarding research being ignored. key_points mention integration assumption, dissent, and onboarding research conflict. action_items may be empty (none explicitly stated) or only include implied follow-ups if clearly grounded. confidence: HIGH. flags: note conflict between assumption and research if not already in summary.",
+    "failure_mode": "Misses dissent or softens conflict — treating a contested decision as unanimous.",
+    "expected": {
+      "summary_contains": ["Salesforce", "onboarding", "dissent"],
+      "action_items_min": 0
+    }
+  },
+  {
+    "id": "tc-003",
+    "name": "Incomplete information — vague insight, no numbers",
+    "category": ["incomplete_information"],
+    "input": "Slack #product-discovery — thread fragment\n\nPM: Are we sure integrations are the churn driver?\nResearch: Onboarding keeps coming up in interviews. Hard to quantify yet.\nPM: OK, let's keep an eye on it.",
+    "perfect_output": "Summary acknowledges onboarding as a recurring interview theme and that quantification is not available. key_points stay qualitative (no invented percentages). action_items empty or at most one weak item only if explicitly stated ('keep an eye on it' is too vague for a concrete action — prefer empty). confidence: LOW or MEDIUM. flags: note thin evidence / lack of quantification.",
+    "failure_mode": "Invents statistics, sample sizes, or concrete action items not present in the text.",
+    "expected": {
+      "summary_contains": ["onboarding"],
+      "action_items_min": 0
+    }
+  },
+  {
+    "id": "tc-004",
+    "name": "Incomplete information — problem stated, no resolution",
+    "category": ["incomplete_information"],
+    "input": "Productboard cluster: 'Invite workflow confusing'\nStatus: Open | Votes: unknown (export truncated)\nNotes: Multiple admins mentioned difficulty adding teammates after SSO is configured. No proposed fix documented.",
+    "perfect_output": "Summary describes invite-workflow confusion after SSO setup without claiming vote counts or fixes. key_points reference admin difficulty and missing resolution. action_items: empty (no fix documented). confidence: MEDIUM or LOW. flags: gap — no proposed solution or vote data.",
+    "failure_mode": "Fabricates vote counts, user quotes, or recommended fixes not in the document.",
+    "expected": {
+      "summary_contains": ["invite", "SSO"],
+      "action_items_min": 0
+    }
+  },
+  {
+    "id": "tc-005",
+    "name": "Out of scope — social / facilities notice",
+    "category": ["off_topic"],
+    "input": "Team lunch is at noon in the cafeteria. Please bring your badge. Vegetarian options available.",
+    "perfect_output": "Exact NOT_FOUND failure JSON: summary = 'I cannot find this information in the provided document.', empty key_points and action_items, confidence LOW, flags include NOT_FOUND (product-discovery content absent). No summary of the lunch event.",
+    "failure_mode": "Summarizes operational/social content instead of rejecting as out-of-scope for PDI.",
+    "expected": {
+      "should_flag_not_found": true
+    }
+  },
+  {
+    "id": "tc-006",
+    "name": "Out of scope — IT security admin email",
+    "category": ["off_topic"],
+    "input": "IT Security Notice\n\nMandatory password reset required by Friday 5pm. Click the link in Okta to update your credentials. Contact helpdesk@company.com for lockouts.",
+    "perfect_output": "NOT_FOUND JSON — document is IT admin, not product discovery. No password-reset summary, no fabricated security recommendations.",
+    "failure_mode": "Treats internal IT comms as product insights or suggests product actions (e.g. 'improve Okta integration').",
+    "expected": {
+      "should_flag_not_found": true
+    }
+  },
+  {
+    "id": "tc-007",
+    "name": "Hallucination trap — competitor mention without evidence",
+    "category": ["hallucination"],
+    "input": "Assumption register entry #14\nWe believe Competitor Y won the Acme Corp deal because they have better enterprise SSO. Evidence: one Slack rumor, unverified. Status: Active.",
+    "perfect_output": "Summary states the assumption and that evidence is a single unverified Slack rumor — does NOT invent Acme deal size, Competitor Y features, or win rates. key_points flag weak evidence. confidence: LOW. flags: unverified evidence / assumption not validated.",
+    "failure_mode": "Invents deal details, competitor capabilities, or presents the rumor as confirmed fact.",
+    "expected": {
+      "summary_contains": ["Competitor", "SSO", "rumor"],
+      "action_items_min": 0
+    }
+  },
+  {
+    "id": "tc-008",
+    "name": "Hallucination trap — qualitative claim inviting invented metrics",
+    "category": ["hallucination"],
+    "input": "Exec brief excerpt\n\n'Onboarding improvements drove significant retention gains last quarter.' No figures, cohorts, or definitions of retention attached.",
+    "perfect_output": "Summary quotes or paraphrases the qualitative claim only — no invented percentages, dollar amounts, or cohort sizes. key_points note missing quantification. action_items: empty unless explicitly stated. confidence: LOW. flags: missing metrics / unsupported magnitude ('significant').",
+    "failure_mode": "Hallucinates specific retention percentages, revenue impact, or sample sizes.",
+    "expected": {
+      "summary_contains": ["onboarding", "retention"],
+      "action_items_min": 0
+    }
+  },
+  {
+    "id": "tc-009",
+    "name": "Long formatted input — Confluence-style markdown export",
+    "category": ["long_formatted"],
+    "input": "# Q1 Discovery Review — Enterprise Segment\n\n## Background\nPM team reviewing churn in first 90 days for accounts >$50k ARR.\n\n## Findings\n| Theme | Mentions | Severity |\n|-------|----------|----------|\n| SSO setup delays | 18 | High |\n| Invite workflow | 11 | Medium |\n| Missing Salesforce sync | 6 | Low |\n\n## Quotes\n> \"We lost two weeks waiting for IT to approve SAML.\" — Admin, FinServ\n\n## Open questions\n- Is Salesforce actually a churn driver or a sales objection?\n- Do we have IT-admin persona research?\n\n## Proposed next steps\n1. Run 5 follow-up interviews with IT admins (Feb)\n2. Prototype SSO wizard in staging by March 1\n3. Pause Salesforce connector scoping until step 1 completes",
+    "perfect_output": "Parses table and sections correctly. Summary prioritizes SSO (18 mentions, High) over Salesforce (6, Low). key_points include table themes and the SAML quote theme. action_items list the three numbered next steps. confidence: HIGH. flags: open questions surfaced as gaps, not answered.",
+    "failure_mode": "Loses structure in long input, misreads table severity, or answers open questions with fabricated research.",
+    "expected": {
+      "summary_contains": ["SSO", "Salesforce"],
+      "action_items_min": 3
+    }
+  },
+  {
+    "id": "tc-010",
+    "name": "Long formatted input — noisy Slack thread with mixed signals",
+    "category": ["long_formatted"],
+    "input": "[2026-01-08 09:14] sarah: anyone have churn data for enterprise?\n[2026-01-08 09:16] mike: checking amplitude, brb\n[2026-01-08 09:22] lisa: january dovetail synthesis is in notion — onboarding > integrations from what i read\n[2026-01-08 09:23] sarah: @lisa link?\n[2026-01-08 09:24] lisa: https://notion.so/dovetail-jan-synthesis (sorry on mobile)\n[2026-01-08 09:31] mike: amplitude query timed out. no numbers yet.\n[2026-01-08 09:45] tom: sales still says we need salesforce first. pipeline deal pushing hard.\n[2026-01-08 09:47] sarah: ok let's discuss in roadmap review thursday\n[2026-01-08 09:48] mike: +1\n[2026-01-08 09:52] random-bot: Reminder: submit timesheets by EOD Friday",
+    "perfect_output": "Extracts discovery-relevant signal (onboarding vs integrations from Dovetail, Salesforce pressure from sales, missing churn numbers) while ignoring bot noise and logistics. Does NOT invent Amplitude metrics. action_items: at most 'discuss in roadmap review Thursday' if treated as explicit; otherwise empty. confidence: MEDIUM (Slack fragment, no primary data). flags: missing quantitative churn data, conflicting sales vs research signals.",
+    "failure_mode": "Invents churn metrics from Mike's failed query, treats timesheet bot reminder as an action item, or ignores the onboarding vs integrations tension.",
+    "expected": {
+      "summary_contains": ["onboarding", "Salesforce"],
+      "action_items_min": 0
+    }
+  }
+]

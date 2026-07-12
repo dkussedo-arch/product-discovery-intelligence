@@ -1,7 +1,5 @@
 import Link from 'next/link'
 
-import { AiStudioShell } from '@/components/ai-studio-shell'
-
 const AI_STUDIO_APP =
   'https://ai.studio/apps/7613e9c7-1cad-49f0-9a16-86f56fccd45f'
 
