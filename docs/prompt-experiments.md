@@ -95,7 +95,8 @@ Other prompts:
 
 | File | Used by |
 |------|---------|
-| `prompts/analyze.txt` | `POST /api/analyze` |
+| `prompts/document-analysis.txt` | `POST /api/analyze` (structured JSON) |
+| `prompts/analyze.txt` | Legacy markdown variant — not wired to production |
 | `prompts/chat.txt` | `POST /api/chat` |
 | `prompts/entity-extraction.txt` | `POST /api/extract-entities` |
 | `prompts/synthesis.txt` | `lib/rag/synthesis.ts` → `POST /api/query` |

@@ -17,6 +17,7 @@ import {
 } from '@/lib/analytics'
 import { readAnthropicStream } from '@/lib/parse-anthropic-stream'
 import { isSupabaseConfigured, uploadDocument } from '@/lib/supabase'
+import type { DocumentAnalysisResult } from '@/lib/types'
 import { cn } from '@/lib/utils'
 
 const MAX_FILE_SIZE_BYTES = 10 * 1024 * 1024
@@ -28,6 +29,115 @@ const ACCEPTED_MIME_TYPES = [
 ]
 
 type ProcessingPhase = 'idle' | 'uploading' | 'extracting' | 'analyzing'
+
+const CONFIDENCE_STYLES: Record<DocumentAnalysisResult['confidence'], string> = {
+  HIGH: 'border-emerald-500/40 bg-emerald-500/15 text-emerald-200',
+  MEDIUM: 'border-amber-500/40 bg-amber-500/15 text-amber-200',
+  LOW: 'border-orange-500/40 bg-orange-500/15 text-orange-200',
+}
+
+function parseDocumentAnalysis(raw: string): DocumentAnalysisResult {
+  let parsed: unknown
+  try {
+    parsed = JSON.parse(raw)
+  } catch {
+    const start = raw.indexOf('{')
+    const end = raw.lastIndexOf('}')
+    if (start === -1 || end === -1) {
+      throw new Error('AI response did not contain valid JSON.')
+    }
+    parsed = JSON.parse(raw.slice(start, end + 1))
+  }
+
+  if (typeof parsed !== 'object' || parsed === null) {
+    throw new Error('AI response did not contain valid JSON.')
+  }
+
+  const record = parsed as Record<string, unknown>
+  if (typeof record.error === 'string') {
+    throw new Error(record.error)
+  }
+
+  return {
+    summary: typeof record.summary === 'string' ? record.summary : '',
+    key_points: Array.isArray(record.key_points)
+      ? record.key_points.filter((item): item is string => typeof item === 'string')
+      : [],
+    action_items: Array.isArray(record.action_items)
+      ? record.action_items.filter((item): item is string => typeof item === 'string')
+      : [],
+    confidence:
+      record.confidence === 'HIGH' ||
+      record.confidence === 'MEDIUM' ||
+      record.confidence === 'LOW'
+        ? record.confidence
+        : 'LOW',
+    flags: Array.isArray(record.flags)
+      ? record.flags.filter((item): item is string => typeof item === 'string')
+      : [],
+  }
+}
+
+function AnalysisResultPanel({ result }: { result: DocumentAnalysisResult }) {
+  return (
+    <div className="mt-6 space-y-4 rounded-xl border border-[var(--color-card-border)] bg-[#0d1219] p-4">
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <h3 className="text-sm font-medium text-[var(--color-accent)]">Analysis result</h3>
+        <span
+          className={cn(
+            'rounded-full border px-2.5 py-0.5 text-xs font-medium',
+            CONFIDENCE_STYLES[result.confidence]
+          )}
+        >
+          {result.confidence} confidence
+        </span>
+      </div>
+
+      {result.summary && (
+        <p className="text-sm leading-relaxed text-[var(--color-muted)]">{result.summary}</p>
+      )}
+
+      {result.key_points.length > 0 && (
+        <div>
+          <h4 className="mb-2 text-xs font-medium uppercase tracking-wide text-[var(--color-muted)]">
+            Key points
+          </h4>
+          <ul className="list-disc space-y-1 pl-5 text-sm text-[var(--color-muted)]">
+            {result.key_points.map((point) => (
+              <li key={point}>{point}</li>
+            ))}
+          </ul>
+        </div>
+      )}
+
+      {result.action_items.length > 0 && (
+        <div>
+          <h4 className="mb-2 text-xs font-medium uppercase tracking-wide text-[var(--color-muted)]">
+            Action items
+          </h4>
+          <ul className="list-disc space-y-1 pl-5 text-sm text-[var(--color-muted)]">
+            {result.action_items.map((item) => (
+              <li key={item}>{item}</li>
+            ))}
+          </ul>
+        </div>
+      )}
+
+      {result.flags.length > 0 && (
+        <div className="flex flex-wrap gap-2">
+          {result.flags.map((flag) => (
+            <span
+              key={flag}
+              className="rounded-lg border border-orange-500/30 bg-orange-500/10 px-2.5 py-1 text-xs text-orange-200"
+            >
+              {flag}
+            </span>
+          ))}
+        </div>
+      )}
+    </div>
+  )
+}
 
 function formatFileSize(bytes: number): string {
   if (bytes < 1024) {
@@ -60,7 +170,7 @@ export function FileUpload() {
   const [progress, setProgress] = useState(0)
   const [phase, setPhase] = useState<ProcessingPhase>('idle')
   const [error, setError] = useState<string | null>(null)
-  const [analysis, setAnalysis] = useState<string | null>(null)
+  const [analysis, setAnalysis] = useState<DocumentAnalysisResult | null>(null)
 
   const isProcessing = phase !== 'idle'
 
@@ -132,7 +242,7 @@ export function FileUpload() {
           true
         )
 
-        setAnalysis(result)
+        setAnalysis(parseDocumentAnalysis(result))
         setProgress(100)
       } catch (err) {
         if (analyzeStartedAt !== null) {
@@ -313,16 +423,7 @@ export function FileUpload() {
         </div>
       )}
 
-      {analysis && (
-        <div className="mt-6 rounded-xl border border-[var(--color-card-border)] bg-[#0d1219] p-4">
-          <h3 className="mb-3 text-sm font-medium text-[var(--color-accent)]">
-            Analysis result
-          </h3>
-          <p className="whitespace-pre-wrap text-sm leading-relaxed text-[var(--color-muted)]">
-            {analysis}
-          </p>
-        </div>
-      )}
+      {analysis && <AnalysisResultPanel result={analysis} />}
 
       <p className="mt-4 text-xs text-[var(--color-muted)]">
         Accepted types:{' '}

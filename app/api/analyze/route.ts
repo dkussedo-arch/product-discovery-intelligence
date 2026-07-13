@@ -1,8 +1,6 @@
-import { readFile } from 'node:fs/promises'
-import path from 'node:path'
-
 import { OPTIONS, withCors } from '@/lib/api-route'
 import { anthropic, CLAUDE_MODEL, TEMPERATURE_ANALYTICAL } from '@/lib/anthropic'
+import { loadPrompt } from '@/lib/load-prompt'
 import type { AnalyzeRequest } from '@/lib/types'
 
 export const runtime = 'nodejs'
@@ -17,11 +15,6 @@ function isAnalyzeRequest(body: unknown): body is AnalyzeRequest {
     'text' in body &&
     typeof (body as AnalyzeRequest).text === 'string'
   )
-}
-
-async function loadSystemPrompt(): Promise<string> {
-  const promptPath = path.join(process.cwd(), 'prompts', 'analyze.txt')
-  return readFile(promptPath, 'utf-8')
 }
 
 export async function POST(request: Request): Promise<Response> {
@@ -55,7 +48,7 @@ export async function POST(request: Request): Promise<Response> {
   const text = body.text.trim()
 
   try {
-    const system = await loadSystemPrompt()
+    const system = await loadPrompt('document-analysis')
 
     const stream = anthropic.messages.stream({
       model: CLAUDE_MODEL,
