@@ -87,7 +87,12 @@ Lists ingested artifacts.
 pnpm build
 ```
 
-Set `ANTHROPIC_API_KEY` in your hosting provider (Vercel, etc.).
+Set these on your hosting provider (Vercel, etc.):
+
+- `ANTHROPIC_API_KEY` (required)
+- `PDI_API_SECRET` (required for cross-origin / AI Studio clients)
+- `HELICONE_API_KEY` (optional)
+- `ALLOWED_CORS_ORIGINS` (optional)
 
 ---
 

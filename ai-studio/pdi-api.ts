@@ -6,8 +6,29 @@ export const PDI_API_BASE =
     (import.meta as { env?: { VITE_PDI_API_URL?: string } }).env?.VITE_PDI_API_URL) ||
   'https://product-discovery-intelligence.vercel.app'
 
+/**
+ * Optional API secret for cross-origin calls.
+ * Must match PDI_API_SECRET on the server. Prefer injecting via AI Studio secrets —
+ * do not hardcode production values in source.
+ */
+export const PDI_API_KEY =
+  (typeof import.meta !== 'undefined' &&
+    (import.meta as { env?: { VITE_PDI_API_KEY?: string } }).env?.VITE_PDI_API_KEY) ||
+  ''
+
 function apiUrl(path: string, base = PDI_API_BASE): string {
   return `${base.replace(/\/$/, '')}${path}`
+}
+
+function authHeaders(jsonBody = false): HeadersInit {
+  const headers: Record<string, string> = {}
+  if (jsonBody) {
+    headers['Content-Type'] = 'application/json'
+  }
+  if (PDI_API_KEY.trim()) {
+    headers.Authorization = `Bearer ${PDI_API_KEY.trim()}`
+  }
+  return headers
 }
 
 async function parseJson<T>(response: Response): Promise<T> {
@@ -28,7 +49,7 @@ export async function queryMemory(
 ): Promise<SynthesisResult> {
   const response = await fetch(apiUrl('/api/query', apiBase), {
     method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
+    headers: authHeaders(true),
     body: JSON.stringify({ query }),
   })
   return parseJson<SynthesisResult>(response)
@@ -40,14 +61,16 @@ export async function ingestArtifact(
 ): Promise<void> {
   const response = await fetch(apiUrl('/api/ingest', apiBase), {
     method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
+    headers: authHeaders(true),
     body: JSON.stringify(payload),
   })
   await parseJson(response)
 }
 
 export async function listArtifactCount(apiBase = PDI_API_BASE): Promise<number> {
-  const response = await fetch(apiUrl('/api/ingest', apiBase))
+  const response = await fetch(apiUrl('/api/ingest', apiBase), {
+    headers: authHeaders(),
+  })
   const data = await parseJson<{ count: number }>(response)
   return data.count
 }

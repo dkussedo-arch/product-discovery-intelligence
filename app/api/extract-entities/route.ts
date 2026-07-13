@@ -1,8 +1,10 @@
-import { readFile } from 'node:fs/promises'
-import path from 'node:path'
-
 import { OPTIONS, withCors } from '@/lib/api-route'
+import {
+  guardApiRequest,
+  internalErrorResponse,
+} from '@/lib/api-guard'
 import { anthropic, CLAUDE_MODEL, TEMPERATURE_ANALYTICAL } from '@/lib/anthropic'
+import { loadPrompt } from '@/lib/load-prompt'
 import type { ExtractEntitiesRequest } from '@/lib/types'
 
 export const runtime = 'nodejs'
@@ -19,12 +21,12 @@ function isExtractEntitiesRequest(body: unknown): body is ExtractEntitiesRequest
   )
 }
 
-async function loadSystemPrompt(): Promise<string> {
-  const promptPath = path.join(process.cwd(), 'prompts', 'entity-extraction.txt')
-  return readFile(promptPath, 'utf-8')
-}
-
 export async function POST(request: Request): Promise<Response> {
+  const blocked = guardApiRequest(request, { ai: true })
+  if (blocked) {
+    return blocked
+  }
+
   if (!process.env.ANTHROPIC_API_KEY) {
     return withCors(
       request,
@@ -55,7 +57,7 @@ export async function POST(request: Request): Promise<Response> {
   const text = body.text.trim()
 
   try {
-    const system = await loadSystemPrompt()
+    const system = await loadPrompt('entity-extraction')
 
     const stream = anthropic.messages.stream({
       model: CLAUDE_MODEL,
@@ -76,12 +78,11 @@ export async function POST(request: Request): Promise<Response> {
       })
     )
   } catch (error) {
-    const message =
-      error instanceof Error ? error.message : 'Failed to extract entities from text.'
-    console.error('[PDI] Entity extraction error:', message)
-    return withCors(
+    return internalErrorResponse(
       request,
-      Response.json({ error: `Claude API request failed: ${message}` }, { status: 500 })
+      'Entity extraction error',
+      error,
+      'Failed to extract entities. Please try again.'
     )
   }
 }

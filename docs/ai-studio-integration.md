@@ -9,13 +9,13 @@
 Deploy this repo and open `https://your-deployment.vercel.app/studio`.
 
 - Calls `POST /api/query` and `POST /api/ingest` via `lib/pdi-api.ts`
-- Includes ingest form and API base URL field for cross-origin testing
+- Includes ingest form, API base URL, and API secret fields for cross-origin testing
 
 ## Option B — Paste into Google AI Studio
 
-1. Deploy the backend (Vercel) with `ANTHROPIC_API_KEY`
+1. Deploy the backend (Vercel) with `ANTHROPIC_API_KEY` and `PDI_API_SECRET`
 2. Copy `ai-studio/types.ts`, `ai-studio/pdi-api.ts`, and `ai-studio/App.tsx` into your [AI Studio app](https://ai.studio/apps/7613e9c7-1cad-49f0-9a16-86f56fccd45f)
-3. Set `PDI_API_BASE` in `pdi-api.ts` to your deployment URL
+3. Set `PDI_API_BASE` (and optionally `PDI_API_KEY` / `VITE_PDI_API_KEY`) in `pdi-api.ts` to your deployment URL and secret
 
 See [`ai-studio/README.md`](../ai-studio/README.md) for details.
 
@@ -34,9 +34,13 @@ Add more origins with `ALLOWED_CORS_ORIGINS` (comma-separated).
 
 ```env
 ANTHROPIC_API_KEY=          # required for synthesis
-NEXT_PUBLIC_PDI_API_URL=      # optional default API base for clients
-ALLOWED_CORS_ORIGINS=         # optional extra CORS origins
+HELICONE_API_KEY=           # optional — LLM observability via Helicone
+PDI_API_SECRET=             # required for cross-origin API access in production
+NEXT_PUBLIC_PDI_API_URL=    # optional default API base for clients
+ALLOWED_CORS_ORIGINS=       # optional extra CORS origins
 ```
+
+Same-origin requests from this Next.js app do not need `PDI_API_SECRET`. Cross-origin clients (e.g. AI Studio) must send `Authorization: Bearer <PDI_API_SECRET>` or `x-api-key: <PDI_API_SECRET>`.
 
 ## API contract
 
@@ -45,6 +49,7 @@ ALLOWED_CORS_ORIGINS=         # optional extra CORS origins
 ```
 POST {BASE_URL}/api/query
 Content-Type: application/json
+Authorization: Bearer <PDI_API_SECRET>   # required for cross-origin
 
 { "query": "What do we know about enterprise onboarding churn?" }
 ```
@@ -54,6 +59,7 @@ Content-Type: application/json
 ```
 POST {BASE_URL}/api/ingest
 Content-Type: application/json
+Authorization: Bearer <PDI_API_SECRET>   # required for cross-origin
 
 {
   "title": "Q1 interview synthesis",
@@ -66,4 +72,5 @@ Content-Type: application/json
 
 ```
 GET {BASE_URL}/api/ingest
+Authorization: Bearer <PDI_API_SECRET>   # required for cross-origin
 ```

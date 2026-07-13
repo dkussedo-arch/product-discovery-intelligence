@@ -1,4 +1,8 @@
 import { OPTIONS, withCors } from '@/lib/api-route'
+import {
+  guardApiRequest,
+  internalErrorResponse,
+} from '@/lib/api-guard'
 import { synthesizeAnswer } from '@/lib/rag/synthesis'
 import {
   buildContextBlock,
@@ -12,6 +16,11 @@ export const maxDuration = 60
 export { OPTIONS }
 
 export async function POST(request: Request): Promise<Response> {
+  const blocked = guardApiRequest(request, { ai: true })
+  if (blocked) {
+    return blocked
+  }
+
   if (!process.env.ANTHROPIC_API_KEY) {
     return withCors(
       request,
@@ -55,11 +64,11 @@ export async function POST(request: Request): Promise<Response> {
 
     return withCors(request, Response.json(result))
   } catch (error) {
-    const message = error instanceof Error ? error.message : 'Query failed.'
-    console.error('[PDI] Query error:', message)
-    return withCors(
+    return internalErrorResponse(
       request,
-      Response.json({ error: 'Failed to process query. Please try again.' }, { status: 500 })
+      'Query error',
+      error,
+      'Failed to process query. Please try again.'
     )
   }
 }

@@ -1,4 +1,8 @@
 import { OPTIONS, withCors } from '@/lib/api-route'
+import {
+  guardApiRequest,
+  internalErrorResponse,
+} from '@/lib/api-guard'
 import { addArtifact, listArtifacts } from '@/lib/rag/store'
 import type { ArtifactSource, IngestRequest } from '@/lib/types'
 
@@ -7,6 +11,11 @@ export const runtime = 'nodejs'
 export { OPTIONS }
 
 export async function GET(request: Request): Promise<Response> {
+  const blocked = guardApiRequest(request)
+  if (blocked) {
+    return blocked
+  }
+
   const artifacts = listArtifacts()
   return withCors(
     request,
@@ -24,6 +33,11 @@ export async function GET(request: Request): Promise<Response> {
 }
 
 export async function POST(request: Request): Promise<Response> {
+  const blocked = guardApiRequest(request)
+  if (blocked) {
+    return blocked
+  }
+
   let body: unknown
   try {
     body = await request.json()
@@ -56,11 +70,11 @@ export async function POST(request: Request): Promise<Response> {
 
     return withCors(request, Response.json({ artifact }))
   } catch (error) {
-    const message = error instanceof Error ? error.message : 'Ingest failed.'
-    console.error('[PDI] Ingest error:', message)
-    return withCors(
+    return internalErrorResponse(
       request,
-      Response.json({ error: 'Failed to ingest artifact.' }, { status: 500 })
+      'Ingest error',
+      error,
+      'Failed to ingest artifact.'
     )
   }
 }

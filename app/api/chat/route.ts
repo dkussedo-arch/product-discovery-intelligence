@@ -2,6 +2,10 @@ import { readFile } from 'node:fs/promises'
 import path from 'node:path'
 
 import { OPTIONS, withCors } from '@/lib/api-route'
+import {
+  guardApiRequest,
+  internalErrorResponse,
+} from '@/lib/api-guard'
 import { anthropic, CLAUDE_MODEL, TEMPERATURE_CONVERSATIONAL } from '@/lib/anthropic'
 import type { ChatMessage, ChatRequest } from '@/lib/types'
 
@@ -47,6 +51,11 @@ async function loadSystemPrompt(): Promise<string> {
 }
 
 export async function POST(request: Request): Promise<Response> {
+  const blocked = guardApiRequest(request, { ai: true })
+  if (blocked) {
+    return blocked
+  }
+
   if (!process.env.ANTHROPIC_API_KEY) {
     return withCors(
       request,
@@ -107,12 +116,11 @@ export async function POST(request: Request): Promise<Response> {
       })
     )
   } catch (error) {
-    const message =
-      error instanceof Error ? error.message : 'Failed to generate chat response.'
-    console.error('[PDI] Chat error:', message)
-    return withCors(
+    return internalErrorResponse(
       request,
-      Response.json({ error: `Claude API request failed: ${message}` }, { status: 500 })
+      'Chat error',
+      error,
+      'Failed to generate chat response. Please try again.'
     )
   }
 }

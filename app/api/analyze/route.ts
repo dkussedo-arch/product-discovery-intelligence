@@ -1,4 +1,8 @@
 import { OPTIONS, withCors } from '@/lib/api-route'
+import {
+  guardApiRequest,
+  internalErrorResponse,
+} from '@/lib/api-guard'
 import { anthropic, CLAUDE_MODEL, TEMPERATURE_ANALYTICAL } from '@/lib/anthropic'
 import { loadPrompt } from '@/lib/load-prompt'
 import type { AnalyzeRequest } from '@/lib/types'
@@ -18,6 +22,11 @@ function isAnalyzeRequest(body: unknown): body is AnalyzeRequest {
 }
 
 export async function POST(request: Request): Promise<Response> {
+  const blocked = guardApiRequest(request, { ai: true })
+  if (blocked) {
+    return blocked
+  }
+
   if (!process.env.ANTHROPIC_API_KEY) {
     return withCors(
       request,
@@ -69,12 +78,11 @@ export async function POST(request: Request): Promise<Response> {
       })
     )
   } catch (error) {
-    const message =
-      error instanceof Error ? error.message : 'Failed to analyze document text.'
-    console.error('[PDI] Analyze error:', message)
-    return withCors(
+    return internalErrorResponse(
       request,
-      Response.json({ error: `Claude API request failed: ${message}` }, { status: 500 })
+      'Analyze error',
+      error,
+      'Failed to analyze document. Please try again.'
     )
   }
 }

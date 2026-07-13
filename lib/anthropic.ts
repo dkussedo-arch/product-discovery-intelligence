@@ -10,10 +10,21 @@ export const TEMPERATURE_ANALYTICAL = 0.2 as const
 /** Conversational / exploratory tasks: chat */
 export const TEMPERATURE_CONVERSATIONAL = 0.7 as const
 
-export const anthropic = new Anthropic({
-  apiKey: process.env.ANTHROPIC_API_KEY,
-  baseURL: 'https://anthropic.helicone.ai',
-  defaultHeaders: {
-    'Helicone-Auth': `Bearer ${process.env.HELICONE_API_KEY}`,
-  },
-})
+function createAnthropicClient(): Anthropic {
+  const apiKey = process.env.ANTHROPIC_API_KEY
+  const heliconeKey = process.env.HELICONE_API_KEY?.trim()
+
+  if (heliconeKey) {
+    return new Anthropic({
+      apiKey,
+      baseURL: 'https://anthropic.helicone.ai',
+      defaultHeaders: {
+        'Helicone-Auth': `Bearer ${heliconeKey}`,
+      },
+    })
+  }
+
+  return new Anthropic({ apiKey })
+}
+
+export const anthropic = createAnthropicClient()

@@ -64,6 +64,7 @@ export function AiStudioShell({
   showApiConfig = true,
 }: AiStudioShellProps) {
   const [apiBase, setApiBase] = useState(defaultApiBase)
+  const [apiKey, setApiKey] = useState('')
   const [query, setQuery] = useState('')
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
@@ -81,9 +82,17 @@ export function AiStudioShell({
   const [ingesting, setIngesting] = useState(false)
   const [ingestMessage, setIngestMessage] = useState<string | null>(null)
 
+  const apiOptions = useCallback(
+    () => ({
+      apiBase: apiBase || undefined,
+      apiKey: apiKey || undefined,
+    }),
+    [apiBase, apiKey]
+  )
+
   const refreshCorpus = useCallback(async () => {
     try {
-      const data = await listArtifacts(apiBase || undefined)
+      const data = await listArtifacts(apiOptions())
       setCorpusCount(data.count)
       setApiStatus('connected')
       setApiStatusMessage(null)
@@ -96,7 +105,7 @@ export function AiStudioShell({
           : 'Cannot connect to the API. Start the dev server: npx.cmd pnpm run dev'
       )
     }
-  }, [apiBase])
+  }, [apiOptions])
 
   useEffect(() => {
     void refreshCorpus()
@@ -116,7 +125,7 @@ export function AiStudioShell({
     const startedAt = performance.now()
 
     try {
-      const synthesis = await queryMemory(trimmed, apiBase || undefined)
+      const synthesis = await queryMemory(trimmed, apiOptions())
       setResult(synthesis)
       trackAiGenerationCompleted('rag_query', performance.now() - startedAt, true)
     } catch (err) {
@@ -144,7 +153,7 @@ export function AiStudioShell({
           source: ingestSource,
           author: ingestAuthor.trim() || undefined,
         },
-        apiBase || undefined
+        apiOptions()
       )
       setIngestTitle('')
       setIngestContent('')
@@ -188,9 +197,18 @@ export function AiStudioShell({
             placeholder="https://your-pdi-deployment.vercel.app (leave empty for same origin)"
             className="h-10 w-full rounded-lg border border-[var(--color-card-border)] bg-[#0d1219] px-3 text-sm outline-none focus:ring-2 focus:ring-[var(--color-accent)]"
           />
+          <input
+            type="password"
+            value={apiKey}
+            onChange={(event) => setApiKey(event.target.value)}
+            placeholder="API secret (required for cross-origin when PDI_API_SECRET is set)"
+            autoComplete="off"
+            className="mt-2 h-10 w-full rounded-lg border border-[var(--color-card-border)] bg-[#0d1219] px-3 text-sm outline-none focus:ring-2 focus:ring-[var(--color-accent)]"
+          />
           <p className="mt-2 text-xs text-[var(--color-muted)]">
-            On localhost, leave this empty — the studio uses the same dev server.
-            For Google AI Studio (cross-origin), set your deployed PDI URL.
+            On localhost, leave both empty — the studio uses the same dev server.
+            For Google AI Studio (cross-origin), set your deployed PDI URL and matching
+            PDI_API_SECRET.
             {corpusCount !== null && (
               <span className="ml-2 inline-flex items-center gap-1">
                 <Database className="h-3 w-3" />

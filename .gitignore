@@ -34,3 +34,8 @@ next-env.d.ts
 .promptfoo/
 promptfoo-output/
 prompts/evaluation/latest-results.json
+
+# Archive uploads — do not commit bundles that may contain secrets
+*.zip
+product-discovery-intelligence*.zip
+
